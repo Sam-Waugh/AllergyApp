@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map Component Final Diagnosis</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #f5f5f5;
+        }
+        .diagnostic-panel { 
+            background: white; 
+            border-radius: 8px; 
+            padding: 20px; 
+            margin: 16px 0; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
+        }
+        .status { 
+            padding: 12px; 
+            border-radius: 4px; 
+            margin: 8px 0; 
+            font-weight: bold;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button { 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            padding: 12px 24px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin: 8px 8px 8px 0; 
+        }
+        button:hover { background: #0056b3; }
+        .test-results {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .app-frame {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .component-analysis {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Map Component Final Diagnosis</h1>
+    
+    <div class="diagnostic-panel">
+        <h2>🎯 Current Issue Analysis</h2>
+        <div id="issue-summary">
+            <div class="status warning">📋 Based on conversation history:</div>
+            <div class="status info">• Created PollenMapViewClean.tsx with pure React Native components</div>
+            <div class="status info">• Fixed HTML/React Native mixing issue</div>
+            <div class="status info">• Updated import in PollenScreen.tsx</div>
+            <div class="status warning">• User reports: "the map is not working yet"</div>
+            <div class="status warning">• Need to identify what specifically isn't working</div>
+        </div>
+    </div>
+
+    <div class="test-results">
+        <div class="diagnostic-panel">
+            <h3>📱 App Status Test</h3>
+            <button onclick="testAppAndNavigation()">Test App & Navigation</button>
+            <div id="app-results"></div>
+        </div>
+
+        <div class="diagnostic-panel">
+            <h3>🗺️ Map Component Analysis</h3>
+            <button onclick="analyzeMapComponent()">Analyze Map Component</button>
+            <div id="map-analysis"></div>
+        </div>
+    </div>
+
+    <div class="diagnostic-panel">
+        <h3>🔄 Complete Data Flow Test</h3>
+        <button onclick="testCompleteFlow()">Test Complete Flow</button>
+        <div id="flow-results"></div>
+    </div>
+
+    <div class="diagnostic-panel">
+        <h3>🌸 Backend Pollen Data Test</h3>
+        <button onclick="testPollenData()">Test Pollen Data</button>
+        <div id="pollen-results"></div>
+    </div>
+
+    <div class="diagnostic-panel">
+        <h3>📱 Live App Preview</h3>
+        <p>Test the actual app here - navigate to Pollen tab to see the map:</p>
+        <iframe class="app-frame" src="http://localhost:8084" title="Allergy App"></iframe>
+    </div>
+
+    <script>
+        function addResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const statusClass = type === 'success' ? 'success' : 
+                              type === 'error' ? 'error' : 
+                              type === 'warning' ? 'warning' : 'info';
+            element.innerHTML += `<div class="status ${statusClass}">${message}</div>`;
+        }
+
+        async function testAppAndNavigation() {
+            const resultsDiv = document.getElementById('app-results');
+            resultsDiv.innerHTML = '';
+            
+            addResult('app-results', '🔄 Testing app accessibility...', 'info');
+            
+            try {
+                // Test if app loads
+                const response = await fetch('http://localhost:8084');
+                if (response.ok) {
+                    addResult('app-results', '✅ App server responding', 'success');
+                    
+                    // Test bundle loading
+                    const text = await response.text();
+                    if (text.includes('expo-constants')) {
+                        addResult('app-results', '✅ Expo app structure detected', 'success');
+                    }
+                    
+                    addResult('app-results', '📋 Manual Test Required:', 'warning');
+                    addResult('app-results', '1. Open app in iframe below', 'info');
+                    addResult('app-results', '2. Navigate to "Pollen" tab', 'info');
+                    addResult('app-results', '3. Look for map component', 'info');
+                    addResult('app-results', '4. Check browser console for errors', 'info');
+                } else {
+                    addResult('app-results', '❌ App server not responding', 'error');
+                }
+            } catch (error) {
+                addResult('app-results', `❌ Cannot connect to app: ${error.message}`, 'error');
+            }
+        }
+
+        async function analyzeMapComponent() {
+            const resultsDiv = document.getElementById('map-analysis');
+            resultsDiv.innerHTML = '';
+            
+            addResult('map-analysis', '🔄 Analyzing map component structure...', 'info');
+            
+            // Component file analysis
+            const componentAnalysis = `
+<div class="component-analysis">
+    <h4>📁 Expected Component Files:</h4>
+    <ul>
+        <li>✅ PollenMapViewClean.tsx - Clean React Native version</li>
+        <li>⚠️ PollenMapView.tsx - Original with HTML/React Native mix</li>
+        <li>✅ FullscreenMapModal.tsx - Modal component</li>
+    </ul>
+    
+    <h4>🔧 Component Props Expected:</h4>
+    <ul>
+        <li>latitude: number (from currentWeather.latitude)</li>
+        <li>longitude: number (from currentWeather.longitude)</li>
+        <li>location: string (from currentWeather.location)</li>
+        <li>pollenCount: string (from currentWeather.pollenCount)</li>
+        <li>heatmapData: any (from currentWeather.heatmapTiles)</li>
+        <li>pollenTypes: any[] (from currentWeather.dailyPollenInfo[0]?.pollenTypes)</li>
+    </ul>
+    
+    <h4>🗺️ Map Functionality:</h4>
+    <ul>
+        <li>Web: Should show Google Maps Static API image</li>
+        <li>Mobile: Should show React Native map placeholder</li>
+        <li>Fallback: Should show styled placeholder with location info</li>
+        <li>Interaction: Tap should open fullscreen modal</li>
+    </ul>
+</div>`;
+            
+            resultsDiv.innerHTML = componentAnalysis;
+            
+            addResult('map-analysis', '🎯 Key Questions to Answer:', 'warning');
+            addResult('map-analysis', '• Does the map component render at all?', 'info');
+            addResult('map-analysis', '• Are coordinates being passed correctly?', 'info');
+            addResult('map-analysis', '• Is Google Maps API key working?', 'info');
+            addResult('map-analysis', '• Are there React render errors?', 'info');
+            addResult('map-analysis', '• Does the fallback UI show when API fails?', 'info');
+        }
+
+        async function testCompleteFlow() {
+            const resultsDiv = document.getElementById('flow-results');
+            resultsDiv.innerHTML = '';
+            
+            addResult('flow-results', '🔄 Testing complete data flow to map...', 'info');
+            
+            try {
+                // Step 1: Auth
+                addResult('flow-results', '🔐 Step 1: Testing authentication...', 'info');
+                const authResponse = await fetch('http://localhost:8090/api/v1/auth/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'username=test@allergyapp.com&password=testpassword123'
+                });
+
+                if (!authResponse.ok) {
+                    throw new Error('Authentication failed');
+                }
+
+                const authData = await authResponse.json();
+                addResult('flow-results', '✅ Authentication successful', 'success');
+
+                // Step 2: Environment data
+                addResult('flow-results', '📊 Step 2: Testing environment data...', 'info');
+                const envResponse = await fetch('http://localhost:8090/api/v1/environment/current?lat=40.7128&lon=-74.0060', {
+                    headers: { 'Authorization': `Bearer ${authData.access_token}` }
+                });
+
+                if (!envResponse.ok) {
+                    throw new Error('Environment data failed');
+                }
+
+                const envData = await envResponse.json();
+                addResult('flow-results', '✅ Environment data received', 'success');
+
+                // Step 3: Validate map props
+                addResult('flow-results', '🗺️ Step 3: Validating map component props...', 'info');
+                
+                const mapProps = {
+                    latitude: envData.latitude,
+                    longitude: envData.longitude,
+                    location: envData.location,
+                    pollenCount: envData.pollen_count,
+                    heatmapData: envData.heatmap_tiles,
+                    pollenTypes: envData.daily_pollen_info?.[0]?.pollen_types || []
+                };
+
+                let allValid = true;
+                Object.entries(mapProps).forEach(([key, value]) => {
+                    if (key === 'latitude' || key === 'longitude') {
+                        if (typeof value === 'number' && !isNaN(value)) {
+                            addResult('flow-results', `✅ ${key}: ${value}`, 'success');
+                        } else {
+                            addResult('flow-results', `❌ ${key}: Invalid (${value})`, 'error');
+                            allValid = false;
+                        }
+                    } else if (key === 'pollenTypes') {
+                        if (Array.isArray(value)) {
+                            addResult('flow-results', `✅ ${key}: Array[${value.length}]`, 'success');
+                        } else {
+                            addResult('flow-results', `⚠️ ${key}: Not an array`, 'warning');
+                        }
+                    } else {
+                        if (value !== undefined && value !== null) {
+                            addResult('flow-results', `✅ ${key}: ${value}`, 'success');
+                        } else {
+                            addResult('flow-results', `⚠️ ${key}: Missing`, 'warning');
+                        }
+                    }
+                });
+
+                if (allValid) {
+                    addResult('flow-results', '🎉 All required map props are valid!', 'success');
+                    
+                    // Step 4: Test Google Maps URL generation
+                    addResult('flow-results', '🌐 Step 4: Testing Google Maps URL generation...', 'info');
+                    const apiKey = 'YOUR_API_KEY_HERE';
+                    const testMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${mapProps.latitude},${mapProps.longitude}&zoom=11&size=400x200&maptype=roadmap&key=${apiKey}&markers=color:red|${mapProps.latitude},${mapProps.longitude}`;
+                    
+                    addResult('flow-results', `🔗 Generated map URL: ${testMapUrl.substring(0, 100)}...`, 'info');
+                    
+                    // Test if the image loads
+                    const testImg = new Image();
+                    testImg.onload = () => {
+                        addResult('flow-results', '✅ Google Maps image loads successfully!', 'success');
+                    };
+                    testImg.onerror = () => {
+                        addResult('flow-results', '❌ Google Maps image failed to load', 'error');
+                        addResult('flow-results', '💡 This could indicate API key or billing issues', 'warning');
+                    };
+                    testImg.src = testMapUrl;
+                } else {
+                    addResult('flow-results', '❌ Some map props are invalid', 'error');
+                }
+
+            } catch (error) {
+                addResult('flow-results', `❌ Flow test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testPollenData() {
+            const resultsDiv = document.getElementById('pollen-results');
+            resultsDiv.innerHTML = '';
+            
+            addResult('pollen-results', '🔄 Testing pollen data structure...', 'info');
+            
+            try {
+                // Test auth first
+                const authResponse = await fetch('http://localhost:8090/api/v1/auth/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'username=test@allergyapp.com&password=testpassword123'
+                });
+
+                if (!authResponse.ok) {
+                    throw new Error('Auth failed');
+                }
+
+                const authData = await authResponse.json();
+
+                // Test environment endpoint
+                const envResponse = await fetch('http://localhost:8090/api/v1/environment/current?lat=40.7128&lon=-74.0060', {
+                    headers: { 'Authorization': `Bearer ${authData.access_token}` }
+                });
+
+                if (!envResponse.ok) {
+                    throw new Error('Environment endpoint failed');
+                }
+
+                const data = await envResponse.json();
+                
+                addResult('pollen-results', '✅ Pollen data endpoint working', 'success');
+                addResult('pollen-results', `📍 Location: ${data.location}`, 'info');
+                addResult('pollen-results', `🌸 Pollen Count: ${data.pollen_count}`, 'info');
+                
+                if (data.daily_pollen_info && data.daily_pollen_info.length > 0) {
+                    addResult('pollen-results', `✅ Enhanced pollen data: ${data.daily_pollen_info.length} days`, 'success');
+                    const today = data.daily_pollen_info[0];
+                    if (today.pollen_types && today.pollen_types.length > 0) {
+                        addResult('pollen-results', `🌸 Today's pollen types: ${today.pollen_types.length}`, 'success');
+                        today.pollen_types.slice(0, 3).forEach(pollen => {
+                            addResult('pollen-results', `  • ${pollen.display_name}: ${pollen.category}`, 'info');
+                        });
+                    }
+                } else {
+                    addResult('pollen-results', '⚠️ No enhanced pollen data - using basic data', 'warning');
+                }
+
+                if (data.heatmap_tiles) {
+                    addResult('pollen-results', '✅ Heatmap data available', 'success');
+                } else {
+                    addResult('pollen-results', '⚠️ No heatmap data', 'warning');
+                }
+
+            } catch (error) {
+                addResult('pollen-results', `❌ Pollen data test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-run initial analysis
+        window.addEventListener('load', () => {
+            // Auto-run some basic tests
+            setTimeout(() => {
+                testAppAndNavigation();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

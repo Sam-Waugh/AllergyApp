@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UI Troubleshooting - Enhanced Pollen Features</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: #4CAF50;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .btn {
+            background: #2196F3;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .btn:hover {
+            background: #1976D2;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            overflow: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔧 UI Troubleshooting - Enhanced Pollen Features</h1>
+        <p>Let's verify what's happening with your enhanced UI</p>
+    </div>
+
+    <div class="card">
+        <h2>Step 1: Backend API Verification</h2>
+        <p>First, let's make sure the backend is returning enhanced data:</p>
+        <button class="btn" onclick="testBackendAPI()">Test Enhanced Backend API</button>
+        <div id="backend-result"></div>
+    </div>
+
+    <div class="card">
+        <h2>Step 2: Frontend Server Status</h2>
+        <p>Check if the frontend server is properly running:</p>
+        <button class="btn" onclick="testFrontendServer()">Check Frontend Server</button>
+        <div id="frontend-result"></div>
+    </div>
+
+    <div class="card">
+        <h2>Step 3: Component Verification</h2>
+        <p>Let's check if the enhanced components are properly defined:</p>
+        <div id="component-verification">
+            <div class="info status">
+                <strong>Enhanced PollenScreen Features Expected:</strong>
+                <ul>
+                    <li>📊 Pollen Summary Cards</li>
+                    <li>📅 Enhanced Daily Forecasts</li>
+                    <li>🌳🌱🌿 Pollen Type Icons</li>
+                    <li>💡 Health Recommendations</li>
+                    <li>🌱 Plant Information</li>
+                    <li>🗺️ Heatmap Data Display</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Step 4: Cache and Restart</h2>
+        <p>If the above tests pass but you still don't see the UI, try:</p>
+        <ol>
+            <li><strong>Clear Browser Cache</strong> - Press Ctrl+F5 in your mobile browser</li>
+            <li><strong>Restart Expo Dev Tools</strong> - Close and reopen the Expo development interface</li>
+            <li><strong>Restart Mobile App</strong> - Close and reopen the Expo Go app or your development app</li>
+            <li><strong>Clear Metro Cache</strong> - We'll provide commands for this below</li>
+        </ol>
+    </div>
+
+    <div class="card">
+        <h2>Quick Fix Commands</h2>
+        <p>If troubleshooting finds issues, here are the commands to run:</p>
+        <pre id="fix-commands">
+# In the AllergyApp directory:
+
+# Clear Metro cache and restart frontend:
+cd frontend
+npx expo start --clear --port 8084
+
+# Or restart backend if needed:
+cd backend
+python -m uvicorn main:app --reload --port 8090
+        </pre>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:8090/api/v1';
+        let authToken = null;
+
+        async function authenticate() {
+            try {
+                // Register test user
+                await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'test@allergyapp.com',
+                        password: 'testpassword123',
+                        full_name: 'Test User'
+                    })
+                });
+
+                // Get token
+                const tokenResponse = await fetch(`${API_BASE}/auth/token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'username=test@allergyapp.com&password=testpassword123'
+                });
+
+                if (tokenResponse.ok) {
+                    const tokenData = await tokenResponse.json();
+                    authToken = tokenData.access_token;
+                    return true;
+                }
+            } catch (error) {
+                console.error('Auth error:', error);
+            }
+            return false;
+        }
+
+        async function testBackendAPI() {
+            const resultDiv = document.getElementById('backend-result');
+            resultDiv.innerHTML = '<div class="info status">🔄 Testing backend API...</div>';
+
+            try {
+                // Authenticate first
+                const authSuccess = await authenticate();
+                if (!authSuccess) {
+                    throw new Error('Authentication failed');
+                }
+
+                // Test enhanced environment endpoint
+                const response = await fetch(`${API_BASE}/environment/current?lat=40.7128&lon=-74.0060&include_heatmap=true`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    let html = '<div class="success status">✅ Backend API Working!</div>';
+                    html += '<h4>Enhanced Data Check:</h4>';
+                    html += `<p>📍 <strong>Location:</strong> ${data.location || 'Not available'}</p>`;
+                    html += `<p>🌡️ <strong>Temperature:</strong> ${data.temperature || 'N/A'}°C</p>`;
+                    
+                    // Check for enhanced pollen features
+                    const hasDaily = data.daily_pollen_info && data.daily_pollen_info.length > 0;
+                    const hasSummary = data.pollen_summary;
+                    const hasHeatmap = data.heatmap_tiles;
+
+                    html += '<h4>🌸 Enhanced Pollen Features:</h4>';
+                    html += `<p>📅 Daily Pollen Info: ${hasDaily ? '✅ Available' : '❌ Missing'}</p>`;
+                    html += `<p>📊 Pollen Summary: ${hasSummary ? '✅ Available' : '❌ Missing'}</p>`;
+                    html += `<p>🗺️ Heatmap Data: ${hasHeatmap ? '✅ Available' : '❌ Missing'}</p>`;
+
+                    if (hasDaily) {
+                        const firstDay = data.daily_pollen_info[0];
+                        html += `<p>🌸 Pollen Types Today: ${firstDay.pollen_types ? firstDay.pollen_types.length : 0}</p>`;
+                        html += `<p>📈 Overall Index: ${firstDay.overall_index || 'N/A'}</p>`;
+                        html += `<p>🎯 Dominant Pollen: ${firstDay.dominant_pollen || 'N/A'}</p>`;
+                    }
+
+                    if (hasSummary) {
+                        const summary = data.pollen_summary;
+                        html += `<p>📊 Today's Dominant: ${summary.today_dominant || 'N/A'}</p>`;
+                        html += `<p>📈 Today's Index: ${summary.today_index || 'N/A'}</p>`;
+                        html += `<p>🔝 Peak Day: ${summary.peak_day || 'N/A'}</p>`;
+                    }
+
+                    html += '<details><summary>📋 Full Response</summary>';
+                    html += `<pre>${JSON.stringify(data, null, 2)}</pre></details>`;
+
+                    resultDiv.innerHTML = html;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error status">❌ Backend API Error: ${error.message}</div>`;
+            }
+        }
+
+        async function testFrontendServer() {
+            const resultDiv = document.getElementById('frontend-result');
+            resultDiv.innerHTML = '<div class="info status">🔄 Testing frontend server...</div>';
+
+            try {
+                const response = await fetch('http://localhost:8084');
+                
+                if (response.ok) {
+                    const text = await response.text();
+                    
+                    let html = '<div class="success status">✅ Frontend Server Running!</div>';
+                    html += '<p>🌐 <strong>Status:</strong> Server is accessible on port 8084</p>';
+                    html += '<p>📱 <strong>Next Steps:</strong></p>';
+                    html += '<ul>';
+                    html += '<li>Open your mobile app (Expo Go or development build)</li>';
+                    html += '<li>Navigate to the "Pollen" tab in bottom navigation</li>';
+                    html += '<li>Look for enhanced UI features listed above</li>';
+                    html += '<li>If still not showing, try clearing cache and restarting</li>';
+                    html += '</ul>';
+                    
+                    resultDiv.innerHTML = html;
+                } else {
+                    throw new Error(`Server responded with status ${response.status}`);
+                }
+            } catch (error) {
+                let html = '<div class="error status">❌ Frontend Server Issue</div>';
+                html += `<p><strong>Error:</strong> ${error.message}</p>`;
+                html += '<p><strong>Solution:</strong> Restart the frontend server:</p>';
+                html += '<pre>cd frontend\nnpx expo start --clear --port 8084</pre>';
+                resultDiv.innerHTML = html;
+            }
+        }
+
+        // Auto-run tests on page load
+        window.onload = function() {
+            testBackendAPI();
+            setTimeout(testFrontendServer, 1000);
+        };
+    </script>
+</body>
+</html>
