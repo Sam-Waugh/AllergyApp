@@ -145,7 +145,7 @@ class PollenTypeData(BaseModel):
     display_name: str
     index_value: int
     category: str  # "NONE", "VERY_LOW", "LOW", "MODERATE", "HIGH", "VERY_HIGH"
-    color: Dict[str, int]  # RGB color values
+    color: Dict[str, float]  # RGB color values (0.0 to 1.0 from Google API)
     in_season: bool
     health_recommendations: Optional[List[str]] = []
     health_impact: Optional[str] = ""

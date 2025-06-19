@@ -238,9 +238,9 @@ def process_detailed_pollen_data(pollen_response: Optional[dict]) -> tuple:
                 "special_colors": plant.get("specialColors", {}),
                 "special_shapes": plant.get("specialShapes", {}),
                 "cross_reaction": plant.get("crossReaction", ""),
-                "picture": plant.get("picture", "")
-            }
-      # Process daily pollen information
+                "picture": plant.get("picture", "")            }
+    
+    # Process daily pollen information
     for day_info in pollen_response.get("dailyInfo", []):
         date_obj = day_info.get("date")
         if not date_obj:
@@ -281,12 +281,11 @@ def process_detailed_pollen_data(pollen_response: Optional[dict]) -> tuple:
                     "category": category,
                     "color": color_info,
                     "in_season": in_season,
-                    "health_recommendations": pollen_details.get("recommendations", []),
-                    "health_impact": pollen_details.get("health_impact", ""),
+                    "health_recommendations": pollen_details.get("recommendations", []),                    "health_impact": pollen_details.get("health_impact", ""),
                     "severity_level": pollen_details.get("level", 0),
                     "plant_info": plant_detail
                 }
-                  pollen_types.append(pollen_data)
+                pollen_types.append(pollen_data)
         
         if pollen_types:
             try:
@@ -392,7 +391,7 @@ async def get_current_environment_data(
         
         # Fetch detailed pollen data
         print("🌼 Fetching detailed pollen data...")
-        pollen_response = await get_google_pollen_data(lat, lon, days=7)  # Get 7-day forecast
+        pollen_response = await get_google_pollen_data(lat, lon, days=5)  # Get 5-day forecast (was 7, caused API error)
         
         # Process pollen data into detailed format
         pollen_data, daily_forecasts, plant_descriptions, region_code = process_detailed_pollen_data(pollen_response)
@@ -436,6 +435,7 @@ async def get_current_environment_data(
             
             # Add detailed pollen data
             base_data.update({
+                "pollen_data": pollen_data,
                 "daily_pollen_info": daily_forecasts,
                 "plant_descriptions": plant_descriptions,
                 "region_code": region_code,
@@ -498,3 +498,103 @@ async def get_environment_data(
     }
     
     return EnvironmentDataResponse(**base_data)
+
+@router.get("/public/current", response_model=EnvironmentDataResponse)
+async def get_current_environment_data_public(
+    lat: float = Query(..., description="Latitude"),
+    lon: float = Query(..., description="Longitude"),
+    include_heatmap: bool = Query(False, description="Include pollen heatmap tile URLs")
+):
+    """Get current environmental data with enhanced pollen forecasts (public endpoint for testing)"""
+    
+    try:
+        print(f"🌍 Getting enhanced environment data for lat={lat}, lon={lon}")
+        
+        # Get human-readable location name
+        print("📍 Fetching location name...")
+        location_name = await get_location_name(lat, lon)
+        print(f"✅ Location: {location_name}")
+        
+        # Fetch detailed pollen data
+        print("🌼 Fetching detailed pollen data...")
+        pollen_response = await get_google_pollen_data(lat, lon, days=5)  # Get 5-day forecast (was 7, caused API error)
+        
+        # Process pollen data into detailed format
+        pollen_data, daily_forecasts, plant_descriptions, region_code = process_detailed_pollen_data(pollen_response)
+        
+        # Generate heatmap tiles if requested
+        heatmap_tiles = None
+        if include_heatmap:
+            print("🗺️ Generating pollen heatmap tiles...")
+            heatmap_tiles = await get_pollen_heatmap_tiles(lat, lon, zoom=12)
+        
+        # Create enhanced response data
+        base_data = {
+            "location": location_name,
+            "latitude": lat,
+            "longitude": lon,
+            "weather_conditions": "partly_cloudy",  # TODO: Replace with real weather data
+            "temperature": 20.0,  # TODO: Replace with real temperature
+            "humidity": 60.0,  # TODO: Replace with real humidity
+            "air_quality_index": 50,  # TODO: Replace with real air quality
+            "uv_index": 5,  # TODO: Replace with real UV index
+            "pollen_count": "moderate"  # Legacy field, will be overridden below
+        }
+        
+        # Add detailed pollen information if available
+        if daily_forecasts and len(daily_forecasts) > 0:
+            print(f"📅 Processing {len(daily_forecasts)} days of pollen forecasts")
+            
+            # Update legacy pollen_count based on today's data
+            today_forecast = daily_forecasts[0]
+            overall_index = today_forecast.get("overall_index", 0)
+            
+            if overall_index <= 1:
+                base_data["pollen_count"] = "low"
+            elif overall_index <= 3:
+                base_data["pollen_count"] = "moderate"
+            else:
+                base_data["pollen_count"] = "high"
+            
+            # Add detailed pollen data
+            base_data.update({
+                "pollen_data": pollen_data,
+                "daily_pollen_info": daily_forecasts,
+                "plant_descriptions": plant_descriptions,
+                "region_code": region_code,
+                "pollen_summary": {
+                    "today_dominant": today_forecast.get("dominant_pollen", "None"),
+                    "today_index": overall_index,
+                    "forecast_days": len(daily_forecasts),
+                    "peak_day": max(daily_forecasts, key=lambda x: x["overall_index"])["day_name"] if daily_forecasts else "Unknown"
+                }
+            })
+        else:
+            print("⚠️ No detailed pollen data available, using basic response")
+        
+        # Add heatmap tiles if requested and available
+        if heatmap_tiles:
+            base_data["heatmap_tiles"] = heatmap_tiles
+        
+        print("✅ Enhanced environment data prepared successfully")
+        return EnvironmentDataResponse(**base_data)
+        
+    except Exception as e:
+        print(f"❌ Error in enhanced /public/current endpoint: {str(e)}")
+        import traceback
+        print(f"🔍 Full traceback: {traceback.format_exc()}")
+        
+        # Fallback to basic data if enhancement fails
+        fallback_data = {
+            "location": f"Location at {lat:.4f}, {lon:.4f}",
+            "latitude": lat,
+            "longitude": lon,
+            "weather_conditions": "partly_cloudy",
+            "temperature": 20.0,
+            "humidity": 60.0,
+            "air_quality_index": 50,
+            "uv_index": 5,
+            "pollen_count": "moderate"
+        }
+        
+        return EnvironmentDataResponse(**fallback_data)

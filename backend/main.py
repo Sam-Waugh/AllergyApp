@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-from routers import logs, photos, profiles, environment_fast as environment, research, auth, test_environment
+from routers import logs, photos, profiles, environment, research, auth
 from database.database import engine
 from models.models import Base
 
@@ -41,7 +41,6 @@ app.include_router(logs.router, prefix="/api/v1/logs", tags=["logs"])
 app.include_router(photos.router, prefix="/api/v1/photos", tags=["photos"])
 app.include_router(profiles.router, prefix="/api/v1/profiles", tags=["profiles"])
 app.include_router(environment.router, prefix="/api/v1/environment", tags=["environment"])
-app.include_router(test_environment.router, prefix="/api/v1/test-environment", tags=["test-environment"])
 app.include_router(research.router, prefix="/api/v1/research", tags=["research"])
 
 @app.get("/")

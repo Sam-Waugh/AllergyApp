@@ -83,21 +83,12 @@ npm start
 
 ## 🏗️ Architecture
 
-```
-AllergyApp/
-├── frontend/          # React Native (Expo) app
-│   ├── src/
-│   │   ├── components/    # Reusable UI components
-│   │   ├── screens/       # App screens
-│   │   ├── navigation/    # Navigation setup
-│   │   └── config/        # App configuration
-│   └── .env              # Frontend environment variables
-├── backend/           # FastAPI server
-│   ├── routers/          # API endpoints
-│   ├── schemas/          # Data models
-│   └── .env              # Backend environment variables
-└── docs/             # Documentation
-```
+See `PROJECT_STRUCTURE.md` for detailed project organization.
+
+**Key Directories:**
+- `frontend/` - React Native (Expo) mobile app
+- `backend/` - FastAPI Python server  
+- `archive/` - Development files and deprecated code
 
 ## 🔧 Development
 
