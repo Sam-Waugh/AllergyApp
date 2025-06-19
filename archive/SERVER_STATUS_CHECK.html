@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Status Check</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .status-card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .success { border-left: 4px solid #4CAF50; background-color: #f8fff8; }
+        .error { border-left: 4px solid #f44336; background-color: #fff8f8; }
+        .test-button { background: #2196F3; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .test-button:hover { background: #1976D2; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .result.success { background: #e8f5e9; color: #2e7d32; }
+        .result.error { background: #ffebee; color: #c62828; }
+        .result.info { background: #e3f2fd; color: #1565c0; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Allergy App - Server Status Check</h1>
+    
+    <div class="status-card">
+        <h2>🧪 Connection Tests</h2>
+        <button class="test-button" onclick="testFrontend()">Test Frontend (Port 8084)</button>
+        <button class="test-button" onclick="testBackend()">Test Backend (Port 8090)</button>
+        <button class="test-button" onclick="testPollenAPI()">Test Pollen API</button>
+        <button class="test-button" onclick="testAll()">Test All Services</button>
+        <div id="results"></div>
+    </div>
+
+    <div class="status-card">
+        <h2>📱 Access Your App</h2>
+        <p><strong>Web Version:</strong> <a href="http://localhost:8084" target="_blank">http://localhost:8084</a></p>
+        <p><strong>Mobile Version:</strong> Use Expo Go app to scan the QR code from the Expo server</p>
+    </div>
+
+    <div class="status-card">
+        <h2>🗺️ Interactive Map Status</h2>
+        <p>✅ Metro bundling issue resolved</p>
+        <p>✅ Platform-specific architecture implemented</p>
+        <p>✅ Cross-platform compatibility achieved</p>
+        <p>📱 Ready for testing on both web and mobile platforms</p>
+    </div>
+
+    <script>
+        function addResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `${new Date().toLocaleTimeString()}: ${message}`;
+            results.appendChild(div);
+        }
+
+        async function testFrontend() {
+            addResult('Testing frontend server...', 'info');
+            try {
+                const response = await fetch('http://localhost:8084');
+                if (response.ok) {
+                    addResult('✅ Frontend server is running and accessible!', 'success');
+                } else {
+                    addResult(`❌ Frontend server error: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ Cannot connect to frontend: ${error.message}`, 'error');
+            }
+        }
+
+        async function testBackend() {
+            addResult('Testing backend server...', 'info');
+            try {
+                const response = await fetch('http://localhost:8090/health');
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult(`✅ Backend server is healthy: ${data.status}`, 'success');
+                } else {
+                    addResult(`❌ Backend server error: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ Cannot connect to backend: ${error.message}`, 'error');
+            }
+        }
+
+        async function testPollenAPI() {
+            addResult('Testing pollen API endpoint...', 'info');
+            try {
+                const response = await fetch('http://localhost:8090/api/v1/environment/current-public');
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult(`✅ Pollen API working! Location: ${data.location}`, 'success');
+                    addResult(`🌸 Pollen level: ${data.pollen_count}`, 'info');
+                } else {
+                    addResult(`❌ Pollen API error: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ Pollen API connection failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAll() {
+            addResult('Running comprehensive system test...', 'info');
+            await testFrontend();
+            await testBackend();
+            await testPollenAPI();
+            addResult('🎉 System test complete! Check results above.', 'success');
+        }
+
+        // Auto-run basic tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testFrontend();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

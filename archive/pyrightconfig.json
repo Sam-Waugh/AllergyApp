@@ -1,0 +1,28 @@
+{
+    "include": [
+        "backend"
+    ],
+    "exclude": [
+        "**/node_modules",
+        "**/__pycache__",
+        "backend/venv"
+    ],
+    "venvPath": "./backend",
+    "venv": "venv",
+    "pythonVersion": "3.12",
+    "pythonPlatform": "Windows",
+    "executionEnvironments": [
+        {
+            "root": "./backend",
+            "pythonVersion": "3.12",
+            "pythonPlatform": "Windows",
+            "extraPaths": [
+                "./backend/venv/Lib/site-packages"
+            ]
+        }
+    ],
+    "typeCheckingMode": "basic",
+    "useLibraryCodeForTypes": true,
+    "autoSearchPaths": true,
+    "stubPath": "./backend/venv/Lib/site-packages"
+}

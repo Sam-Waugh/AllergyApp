@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Cloud Maps API Setup Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #4285f4;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .step {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .step h2 {
+            color: #1a73e8;
+            margin-top: 0;
+        }
+        
+        .test-section {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        
+        .error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        
+        .info {
+            background: #cce7ff;
+            border-color: #99d3ff;
+            color: #004085;
+        }
+        
+        button {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #3367d6;
+        }
+        
+        .api-key-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        
+        .result-image {
+            max-width: 100%;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .checklist {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .checklist li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .checklist li:before {
+            content: "☐ ";
+            color: #666;
+            font-weight: bold;
+        }
+        
+        .checklist li.checked:before {
+            content: "✅ ";
+            color: #28a745;
+        }
+        
+        .code-block {
+            background: #f1f3f4;
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        
+        .links {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        
+        .links a {
+            background: #1a73e8;
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .links a:hover {
+            background: #1557b0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ Google Cloud Maps API Setup Verification</h1>
+        
+        <div class="step">
+            <h2>Step 1: Google Cloud Console Setup Checklist</h2>
+            <ul class="checklist">
+                <li id="check-project">Google Cloud Project created/selected</li>
+                <li id="check-billing">Billing enabled with valid payment method</li>
+                <li id="check-static-api">Maps Static API enabled</li>
+                <li id="check-js-api">Maps JavaScript API enabled (optional)</li>
+                <li id="check-places-api">Places API enabled (optional)</li>
+                <li id="check-geocoding-api">Geocoding API enabled (optional)</li>
+                <li id="check-restrictions">API key restrictions configured</li>
+            </ul>
+            
+            <div class="links">
+                <a href="https://console.cloud.google.com/" target="_blank">Open Google Cloud Console</a>
+                <a href="https://console.cloud.google.com/billing" target="_blank">Billing Settings</a>
+                <a href="https://console.cloud.google.com/apis/library" target="_blank">API Library</a>
+                <a href="https://console.cloud.google.com/apis/credentials" target="_blank">API Credentials</a>
+            </div>
+        </div>
+        
+        <div class="step">
+            <h2>Step 2: API Key Testing</h2>
+            <label for="apiKey">Enter your Google Maps API Key:</label>
+            <input type="text" id="apiKey" class="api-key-input" value="YOUR_API_KEY_HERE" placeholder="Paste your API key here">
+            
+            <div style="margin: 15px 0;">
+                <button onclick="testBasicMap()">Test Basic Map</button>
+                <button onclick="testWithMarker()">Test Map with Marker</button>
+                <button onclick="testSatelliteView()">Test Satellite View</button>
+                <button onclick="testNYCLocation()">Test NYC Location</button>
+                <button onclick="clearResults()">Clear Results</button>
+            </div>
+            
+            <div id="testResults"></div>
+        </div>
+        
+        <div class="step">
+            <h2>Step 3: API Enablement Verification</h2>
+            <p>Click the buttons below to test if specific APIs are enabled:</p>
+            
+            <div style="margin: 15px 0;">
+                <button onclick="testStaticMapsAPI()">Test Static Maps API</button>
+                <button onclick="testGeocodingAPI()">Test Geocoding API</button>
+                <button onclick="testPlacesAPI()">Test Places API</button>
+            </div>
+            
+            <div id="apiTestResults"></div>
+        </div>
+        
+        <div class="step">
+            <h2>Step 4: Common Issues & Solutions</h2>
+            
+            <div class="test-section error">
+                <h3>❌ "This API project is not authorized to use this API"</h3>
+                <p><strong>Solution:</strong> Enable the Maps Static API in Google Cloud Console</p>
+                <div class="code-block">
+                1. Go to APIs & Services > Library
+                2. Search for "Maps Static API"
+                3. Click on it and press "Enable"
+                </div>
+            </div>
+            
+            <div class="test-section error">
+                <h3>❌ "API key not valid. Please pass a valid API key."</h3>
+                <p><strong>Solution:</strong> Check API key restrictions and billing</p>
+                <div class="code-block">
+                1. Verify billing is enabled
+                2. Check API key restrictions in Credentials
+                3. Wait 5-10 minutes for changes to propagate
+                </div>
+            </div>
+            
+            <div class="test-section error">
+                <h3>❌ "REQUEST_DENIED"</h3>
+                <p><strong>Solution:</strong> Enable billing account</p>
+                <div class="code-block">
+                1. Go to Billing in Google Cloud Console
+                2. Link a billing account with valid payment method
+                3. Note: You get $200 free credits monthly
+                </div>
+            </div>
+        </div>
+        
+        <div class="step">
+            <h2>Step 5: Test Your Allergy App</h2>
+            <p>After completing the setup above, test your app:</p>
+            
+            <div class="test-section info">
+                <h3>🚀 Test Your App</h3>
+                <ol>
+                    <li>Ensure your development server is running</li>
+                    <li>Open your Allergy App</li>
+                    <li>Navigate to the Pollen screen</li>
+                    <li>Check if maps load instead of fallback UI</li>
+                    <li>Open browser console (F12) to check for errors</li>
+                </ol>
+                
+                <div style="margin: 15px 0;">
+                    <button onclick="openApp()">Open Allergy App (Port 8084)</button>
+                    <button onclick="openConsole()">How to Open Browser Console</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="step">
+            <h2>Step 6: Monitor Usage & Billing</h2>
+            <div class="test-section info">
+                <h3>📊 Important Monitoring</h3>
+                <p>Keep track of your API usage to avoid unexpected charges:</p>
+                <ul>
+                    <li>Check usage in Google Cloud Console > APIs & Services > Quotas</li>
+                    <li>Set up billing alerts</li>
+                    <li>Monitor the $200 monthly free credit usage</li>
+                </ul>
+                
+                <div class="links">
+                    <a href="https://console.cloud.google.com/apis/dashboard" target="_blank">API Dashboard</a>
+                    <a href="https://console.cloud.google.com/billing" target="_blank">Billing Overview</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mark checklist items as completed
+        function markCompleted(itemId) {
+            const item = document.getElementById(itemId);
+            if (item) {
+                item.classList.add('checked');
+            }
+        }
+
+        // Test basic map functionality
+        function testBasicMap() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                showResult('Please enter your API key first!', 'error');
+                return;
+            }
+
+            const url = `https://maps.googleapis.com/maps/api/staticmap?center=37.7749,-122.4194&zoom=12&size=400x300&key=${apiKey}`;
+            testMapUrl(url, 'Basic Map Test');
+        }
+
+        function testWithMarker() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                showResult('Please enter your API key first!', 'error');
+                return;
+            }
+
+            const url = `https://maps.googleapis.com/maps/api/staticmap?center=37.7749,-122.4194&zoom=12&size=400x300&markers=color:red|37.7749,-122.4194&key=${apiKey}`;
+            testMapUrl(url, 'Map with Marker Test');
+        }
+
+        function testSatelliteView() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                showResult('Please enter your API key first!', 'error');
+                return;
+            }
+
+            const url = `https://maps.googleapis.com/maps/api/staticmap?center=37.7749,-122.4194&zoom=12&size=400x300&maptype=satellite&key=${apiKey}`;
+            testMapUrl(url, 'Satellite View Test');
+        }
+
+        function testNYCLocation() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                showResult('Please enter your API key first!', 'error');
+                return;
+            }
+
+            const url = `https://maps.googleapis.com/maps/api/staticmap?center=40.7128,-74.0060&zoom=13&size=400x300&markers=color:blue|40.7128,-74.0060&key=${apiKey}`;
+            testMapUrl(url, 'NYC Location Test');
+        }
+
+        function testMapUrl(url, testName) {
+            showResult(`🔄 Testing ${testName}...`, 'info');
+            
+            const img = new Image();
+            img.onload = function() {
+                showResult(`✅ ${testName} successful!`, 'success');
+                const imgElement = document.createElement('img');
+                imgElement.src = url;
+                imgElement.className = 'result-image';
+                document.getElementById('testResults').appendChild(imgElement);
+            };
+            
+            img.onerror = function() {
+                showResult(`❌ ${testName} failed. Check your API key and Google Cloud settings.`, 'error');
+                
+                // Try to get more specific error info
+                fetch(url)
+                    .then(response => response.text())
+                    .then(text => {
+                        if (text.includes('API key not valid')) {
+                            showResult('❌ API key is not valid. Check your key and restrictions.', 'error');
+                        } else if (text.includes('REQUEST_DENIED')) {
+                            showResult('❌ Request denied. Enable billing in Google Cloud Console.', 'error');
+                        } else if (text.includes('API project is not authorized')) {
+                            showResult('❌ API not authorized. Enable Maps Static API in Google Cloud Console.', 'error');
+                        }
+                    })
+                    .catch(e => {
+                        showResult(`❌ Network error: ${e.message}`, 'error');
+                    });
+            };
+            
+            img.src = url;
+        }
+
+        function testStaticMapsAPI() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                showApiResult('Please enter your API key first!', 'error');
+                return;
+            }
+
+            showApiResult('🔄 Testing Static Maps API...', 'info');
+            
+            const url = `https://maps.googleapis.com/maps/api/staticmap?center=0,0&zoom=1&size=100x100&key=${apiKey}`;
+            
+            fetch(url)
+                .then(response => {
+                    if (response.ok) {
+                        showApiResult('✅ Static Maps API is enabled and working!', 'success');
+                        markCompleted('check-static-api');
+                    } else {
+                        return response.text().then(text => {
+                            throw new Error(`HTTP ${response.status}: ${text}`);
+                        });
+                    }
+                })
+                .catch(error => {
+                    showApiResult(`❌ Static Maps API test failed: ${error.message}`, 'error');
+                });
+        }
+
+        function testGeocodingAPI() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                showApiResult('Please enter your API key first!', 'error');
+                return;
+            }
+
+            showApiResult('🔄 Testing Geocoding API...', 'info');
+            
+            const url = `https://maps.googleapis.com/maps/api/geocode/json?address=1600+Amphitheatre+Parkway,+Mountain+View,+CA&key=${apiKey}`;
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'OK') {
+                        showApiResult('✅ Geocoding API is enabled and working!', 'success');
+                        markCompleted('check-geocoding-api');
+                    } else {
+                        showApiResult(`❌ Geocoding API error: ${data.status}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    showApiResult(`❌ Geocoding API test failed: ${error.message}`, 'error');
+                });
+        }
+
+        function testPlacesAPI() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                showApiResult('Please enter your API key first!', 'error');
+                return;
+            }
+
+            showApiResult('🔄 Testing Places API...', 'info');
+            
+            const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=restaurants+in+New+York&key=${apiKey}`;
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'OK') {
+                        showApiResult('✅ Places API is enabled and working!', 'success');
+                        markCompleted('check-places-api');
+                    } else {
+                        showApiResult(`❌ Places API error: ${data.status}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    showApiResult(`❌ Places API test failed: ${error.message}`, 'error');
+                });
+        }
+
+        function showResult(message, type) {
+            const resultsDiv = document.getElementById('testResults');
+            const resultElement = document.createElement('div');
+            resultElement.className = `test-section ${type}`;
+            resultElement.innerHTML = `<p>${message}</p>`;
+            resultsDiv.appendChild(resultElement);
+        }
+
+        function showApiResult(message, type) {
+            const resultsDiv = document.getElementById('apiTestResults');
+            const resultElement = document.createElement('div');
+            resultElement.className = `test-section ${type}`;
+            resultElement.innerHTML = `<p>${message}</p>`;
+            resultsDiv.appendChild(resultElement);
+        }
+
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '';
+            document.getElementById('apiTestResults').innerHTML = '';
+        }
+
+        function openApp() {
+            window.open('http://localhost:8084', '_blank');
+        }
+
+        function openConsole() {
+            alert('To open browser console:\n\n' +
+                  '• Chrome/Edge: Press F12 or Ctrl+Shift+I\n' +
+                  '• Firefox: Press F12 or Ctrl+Shift+K\n' +
+                  '• Safari: Cmd+Option+I\n\n' +
+                  'Look for any red error messages in the Console tab.');
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🗺️ Google Cloud Maps API Setup Verification Tool loaded');
+            
+            // Check if API key is already filled
+            const apiKeyInput = document.getElementById('apiKey');
+            if (apiKeyInput.value.trim()) {
+                showResult('API key detected. Ready for testing!', 'info');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google APIs Enablement Guide</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .step {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #007bff;
+        }
+        .important {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+        }
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+        }
+        .error {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+        }
+        .api-link {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .api-link:hover {
+            background: #0056b3;
+        }
+        .code {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+        }
+        .checklist {
+            background: #e8f5e8;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .checklist h4 {
+            margin-top: 0;
+            color: #155724;
+        }
+        .checklist ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Enable Google APIs for Pollen Heatmaps</h1>
+        <p><strong>Current Error:</strong> ApiNotActivatedMapError - Google Maps JavaScript API not enabled</p>
+
+        <div class="error">
+            <h3>❌ Current Problem</h3>
+            <p>Your API key <code>YOUR_API_KEY_HERE</code> doesn't have the Google Maps JavaScript API enabled.</p>
+            <p>This is required for interactive maps with pollen heatmap overlays.</p>
+        </div>
+
+        <div class="step">
+            <h3>📋 APIs You Need to Enable</h3>
+            <p>For the pollen heatmap functionality to work, you need these APIs:</p>
+            <ol>
+                <li><strong>Google Maps JavaScript API</strong> - For interactive maps (REQUIRED)</li>
+                <li><strong>Pollen API</strong> - For pollen heatmap tiles (ALREADY WORKING)</li>
+                <li><strong>Geocoding API</strong> - For location names (OPTIONAL, enhances UX)</li>
+            </ol>
+        </div>
+
+        <div class="step important">
+            <h3>🚀 Step 1: Enable Google Maps JavaScript API</h3>
+            <p><strong>This is the main API you need to enable to fix the error.</strong></p>
+            
+            <a href="https://console.cloud.google.com/apis/library/maps-backend.googleapis.com" 
+               target="_blank" class="api-link">
+                🔗 Enable Google Maps JavaScript API
+            </a>
+            
+            <p><strong>Alternative direct links:</strong></p>
+            <ul>
+                <li><a href="https://console.cloud.google.com/apis/library" target="_blank">Browse all APIs</a> → Search "Maps JavaScript API"</li>
+                <li><a href="https://console.cloud.google.com/apis/dashboard" target="_blank">APIs Dashboard</a> → Library → Maps JavaScript API</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>🌸 Step 2: Verify Pollen API (Already Working)</h3>
+            <p>Good news! Your Pollen API is already working. You can verify this:</p>
+            
+            <a href="https://console.cloud.google.com/apis/library/pollen.googleapis.com" 
+               target="_blank" class="api-link">
+                ✅ Verify Pollen API Status
+            </a>
+        </div>
+
+        <div class="step">
+            <h3>🗺️ Step 3: Optional - Enable Geocoding API</h3>
+            <p>This enhances location display but isn't required for basic functionality:</p>
+            
+            <a href="https://console.cloud.google.com/apis/library/geocoding-backend.googleapis.com" 
+               target="_blank" class="api-link">
+                🔗 Enable Geocoding API (Optional)
+            </a>
+        </div>
+
+        <div class="step success">
+            <h3>✅ Quick Verification Steps</h3>
+            <ol>
+                <li><strong>Go to Google Cloud Console:</strong> <a href="https://console.cloud.google.com/" target="_blank">console.cloud.google.com</a></li>
+                <li><strong>Select your project</strong> (the one with your API key)</li>
+                <li><strong>Navigate to:</strong> APIs & Services → Library</li>
+                <li><strong>Search for:</strong> "Maps JavaScript API"</li>
+                <li><strong>Click:</strong> "Enable" button</li>
+                <li><strong>Wait:</strong> 1-2 minutes for activation</li>
+                <li><strong>Test:</strong> Refresh your app and check the map</li>
+            </ol>
+        </div>
+
+        <div class="checklist">
+            <h4>📝 API Enablement Checklist</h4>
+            <ul>
+                <li>☐ Google Maps JavaScript API - <strong>REQUIRED</strong></li>
+                <li>☑️ Pollen API - Already enabled and working</li>
+                <li>☐ Geocoding API - Optional for better location names</li>
+                <li>☐ Billing account linked and active</li>
+                <li>☐ API key restrictions configured (if needed)</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>💰 Billing Requirements</h3>
+            <p><strong>Important:</strong> Google Maps JavaScript API requires a billing account.</p>
+            <ul>
+                <li>Maps JavaScript API has usage-based pricing</li>
+                <li>You get $200 free credit per month</li>
+                <li>Typical usage for development is well within free tier</li>
+                <li><a href="https://console.cloud.google.com/billing" target="_blank">Check Billing Status</a></li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>🧪 Test After Enabling</h3>
+            <p>After enabling the APIs, test your implementation:</p>
+            <div class="code">
+                1. Wait 1-2 minutes for API activation
+                2. Refresh your React app (http://localhost:8084)
+                3. Navigate to Pollen screen
+                4. Look for Interactive Pollen Map section
+                5. Should see Google Maps with pollen heatmap overlays
+            </div>
+        </div>
+
+        <div class="step important">
+            <h3>🎯 Expected Result</h3>
+            <p>Once Google Maps JavaScript API is enabled, you should see:</p>
+            <ul>
+                <li>✅ Interactive Google Map (no more ApiNotActivatedMapError)</li>
+                <li>✅ Colored pollen heatmap overlays</li>
+                <li>✅ Tree/Grass/Weed switching buttons</li>
+                <li>✅ Zoom and pan functionality</li>
+                <li>✅ Location marker with pollen level</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>🆘 If You Still Have Issues</h3>
+            <p>If enabling the API doesn't work immediately:</p>
+            <ol>
+                <li><strong>Wait:</strong> API activation can take up to 5 minutes</li>
+                <li><strong>Check Project:</strong> Ensure you're in the correct Google Cloud project</li>
+                <li><strong>Verify API Key:</strong> Make sure your API key has the right permissions</li>
+                <li><strong>Check Billing:</strong> Ensure billing account is active</li>
+                <li><strong>Clear Cache:</strong> Refresh your browser and clear cache</li>
+            </ol>
+        </div>
+
+        <div class="success">
+            <h3>🎉 Summary</h3>
+            <p><strong>Main Action Required:</strong> Enable Google Maps JavaScript API</p>
+            <p><strong>Direct Link:</strong> 
+                <a href="https://console.cloud.google.com/apis/library/maps-backend.googleapis.com" target="_blank">
+                    Enable Maps JavaScript API
+                </a>
+            </p>
+            <p><strong>Time Required:</strong> 2-5 minutes</p>
+            <p><strong>Cost:</strong> Free tier covers typical development usage</p>
+        </div>
+    </div>
+
+    <script>
+        // Auto-open the main API enablement page
+        setTimeout(() => {
+            console.log('💡 TIP: Click the "Enable Google Maps JavaScript API" button above to fix the error!');
+        }, 2000);
+    </script>
+</body>
+</html>

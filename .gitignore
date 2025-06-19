@@ -1,0 +1,55 @@
+# Environment variables
+.env
+.env.local
+.env.production
+.env.development
+.env.backup
+backend/.env
+frontend/.env
+
+# Dependencies
+node_modules/
+backend/venv/
+backend/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Build outputs
+dist/
+build/
+web-build/
+.expo/
+
+# Test files with sensitive data
+*test*.html
+*debug*.html
+*diagnostic*.html
+
+# Temporary files
+*.tmp
+*.temp
+
+# API keys and sensitive data
+*api*key*
+*secret*
+*.pem
+*.key
+*.p12
+*.p8
+*.jks
+*.mobileprovision

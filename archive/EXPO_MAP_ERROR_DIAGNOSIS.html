@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🗺️ Enhanced Map Image Error Diagnosis</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .section {
+            padding: 30px;
+            border-bottom: 1px solid #eee;
+        }
+        .section:last-child { border-bottom: none; }
+        .test-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+            border-left: 4px solid #ddd;
+        }
+        .test-card.success { border-left-color: #4CAF50; background: #f1f8e9; }
+        .test-card.error { border-left-color: #f44336; background: #ffebee; }
+        .test-card.warning { border-left-color: #ff9800; background: #fff3e0; }
+        .test-card.info { border-left-color: #2196f3; background: #e3f2fd; }
+        .btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: background 0.3s ease;
+        }
+        .btn:hover { background: #45a049; }
+        .btn-danger { background: #f44336; }
+        .btn-danger:hover { background: #d32f2f; }
+        .url-display {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+        .map-test-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .map-preview {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #f5f5f5;
+        }
+        .map-preview img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .error-details {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .coordinates-input {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .coordinates-input input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        @media (max-width: 768px) {
+            .map-test-container { grid-template-columns: 1fr; }
+            .coordinates-input { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗺️ Enhanced Map Image Error Diagnosis</h1>
+            <p>Diagnosing "failed to load enhanced map image" error in Expo app</p>
+        </div>
+
+        <div class="section">
+            <h2>🔍 Error Analysis</h2>
+            <div class="test-card error">
+                <h3>❌ Problem Description</h3>
+                <p><strong>Error:</strong> "Failed to load enhanced map image" in Expo app</p>
+                <p><strong>Location:</strong> FullscreenMapModal component</p>
+                <p><strong>Platform:</strong> Mobile/Expo (React Native)</p>
+                <p><strong>Expected:</strong> Google Static Maps image should display</p>
+            </div>
+
+            <div class="test-card info">
+                <h3>🧐 Possible Causes</h3>
+                <ul>
+                    <li><strong>API Key Issues:</strong> Invalid or restricted Google Maps API key</li>
+                    <li><strong>Network Issues:</strong> Expo app can't reach Google Maps servers</li>
+                    <li><strong>URL Encoding:</strong> Invalid characters in generated map URL</li>
+                    <li><strong>Coordinate Issues:</strong> Invalid latitude/longitude values</li>
+                    <li><strong>Image Size Issues:</strong> Requested image size too large</li>
+                    <li><strong>CORS Issues:</strong> Cross-origin restrictions (less likely for images)</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🧪 Live Map URL Testing</h2>
+            
+            <div class="coordinates-input">
+                <input type="number" id="latitude" placeholder="Latitude (e.g., 40.7128)" value="40.7128" step="0.000001">
+                <input type="number" id="longitude" placeholder="Longitude (e.g., -74.0060)" value="-74.0060" step="0.000001">
+            </div>
+
+            <div style="text-align: center; margin: 20px 0;">
+                <button class="btn" onclick="generateAndTestMapUrl()">🔄 Generate & Test Map URL</button>
+                <button class="btn btn-danger" onclick="testWithDifferentParams()">🛠️ Test Alternative Parameters</button>
+            </div>
+
+            <div id="urlDisplay" class="url-display" style="display: none;"></div>
+
+            <div class="map-test-container">
+                <div>
+                    <h3>Standard Map Test</h3>
+                    <div class="map-preview" id="standardMapPreview">
+                        <p style="text-align: center; padding: 40px; color: #666;">Map will appear here after testing</p>
+                    </div>
+                </div>
+                <div>
+                    <h3>Simplified Map Test</h3>
+                    <div class="map-preview" id="simplifiedMapPreview">
+                        <p style="text-align: center; padding: 40px; color: #666;">Simplified map will appear here</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="testResults"></div>
+        </div>
+
+        <div class="section">
+            <h2>🛠️ Troubleshooting Steps</h2>
+            
+            <div class="test-card warning">
+                <h3>Step 1: Verify API Key</h3>
+                <p>Current API Key: <code>YOUR_API_KEY_HERE</code></p>
+                <button class="btn" onclick="testApiKey()">Test API Key</button>
+                <div id="apiKeyResult"></div>
+            </div>
+
+            <div class="test-card warning">
+                <h3>Step 2: Check API Restrictions</h3>
+                <p>Verify Google Cloud Console settings:</p>
+                <ul>
+                    <li>Maps Static API is enabled</li>
+                    <li>No HTTP referrer restrictions (for testing)</li>
+                    <li>No IP restrictions blocking Expo app</li>
+                    <li>Billing account is active</li>
+                </ul>
+                <button class="btn" onclick="openGoogleCloudConsole()">🔗 Open Google Cloud Console</button>
+            </div>
+
+            <div class="test-card warning">
+                <h3>Step 3: Test Network Connectivity</h3>
+                <button class="btn" onclick="testNetworkConnectivity()">Test Google Maps Access</button>
+                <div id="networkResult"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔧 Code Fixes</h2>
+            
+            <div class="test-card info">
+                <h3>Potential Fix 1: Enhanced Error Handling</h3>
+                <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto;"><code>// Add to FullscreenMapModal.tsx
+&lt;Image
+  source={{ uri: generateEnhancedMapUrl() }}
+  style={styles.enhancedMapImage}
+  onError={(error) => {
+    console.error('❌ Map image error:', error.nativeEvent);
+    console.error('❌ Map URL:', generateEnhancedMapUrl());
+    setMapLoadError(true);
+  }}
+  onLoad={() => {
+    console.log('✅ Map image loaded successfully');
+    console.log('✅ Map URL:', generateEnhancedMapUrl());
+  }}
+/></code></pre>
+            </div>
+
+            <div class="test-card info">
+                <h3>Potential Fix 2: Fallback URL Generation</h3>
+                <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto;"><code>// Add fallback URL generation
+const generateSimpleMapUrl = () => {
+  const apiKey = 'YOUR_API_KEY_HERE';
+  const lat = Number(latitude).toFixed(6);
+  const lng = Number(longitude).toFixed(6);
+  
+  return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=12&size=400x300&key=${apiKey}`;
+};</code></pre>
+            </div>
+
+            <div class="test-card info">
+                <h3>Potential Fix 3: URL Validation</h3>
+                <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto;"><code>// Add URL validation
+const validateMapUrl = (url) => {
+  try {
+    new URL(url);
+    return url.length < 8192; // Google Maps URL limit
+  } catch {
+    return false;
+  }
+};</code></pre>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📱 Expo-Specific Solutions</h2>
+            
+            <div class="test-card success">
+                <h3>Solution 1: Use Image Loading Library</h3>
+                <p>Install expo-image for better image loading:</p>
+                <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px;"><code>npx expo install expo-image</code></pre>
+                
+                <p>Then use in component:</p>
+                <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto;"><code>import { Image } from 'expo-image';
+
+&lt;Image
+  source={{ uri: generateEnhancedMapUrl() }}
+  style={styles.enhancedMapImage}
+  onError={(error) => console.error('Map load error:', error)}
+  placeholder="🗺️ Loading map..."
+  transition={1000}
+/></code></pre>
+            </div>
+
+            <div class="test-card success">
+                <h3>Solution 2: Add Request Headers</h3>
+                <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto;"><code>&lt;Image
+  source={{ 
+    uri: generateEnhancedMapUrl(),
+    headers: {
+      'User-Agent': 'AllergyApp/1.0 (Expo)',
+    }
+  }}
+  style={styles.enhancedMapImage}
+/></code></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function generateMapUrl(lat, lng, isSimplified = false) {
+            const apiKey = 'YOUR_API_KEY_HERE';
+            const centerLat = Number(lat).toFixed(6);
+            const centerLng = Number(lng).toFixed(6);
+            const center = `${centerLat},${centerLng}`;
+            
+            if (isSimplified) {
+                return `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=12&size=400x300&maptype=roadmap&key=${apiKey}&markers=color:red|${center}`;
+            }
+            
+            const width = 640;
+            const height = 400;
+            const zoom = 12;
+            
+            const baseUrl = 'https://maps.googleapis.com/maps/api/staticmap';
+            const params = [
+                `center=${center}`,
+                `zoom=${zoom}`,
+                `size=${width}x${height}`,
+                `maptype=roadmap`,
+                `key=${apiKey}`,
+                `markers=color:red%7Csize:mid%7Clabel:📍%7C${center}`
+            ];
+            
+            // Add nearby points like in the actual component
+            const nearbyPoints = [
+                { lat: parseFloat(lat) + 0.01, lng: parseFloat(lng) + 0.01, color: 'green', label: 'L' },
+                { lat: parseFloat(lat) - 0.01, lng: parseFloat(lng) - 0.01, color: 'orange', label: 'M' },
+                { lat: parseFloat(lat) + 0.01, lng: parseFloat(lng) - 0.01, color: 'red', label: 'H' },
+            ];
+            
+            nearbyPoints.forEach(point => {
+                params.push(`markers=color:${point.color}%7Csize:small%7Clabel:${point.label}%7C${point.lat},${point.lng}`);
+            });
+            
+            return `${baseUrl}?${params.join('&')}`;
+        }
+
+        function generateAndTestMapUrl() {
+            const lat = document.getElementById('latitude').value;
+            const lng = document.getElementById('longitude').value;
+            
+            if (!lat || !lng) {
+                alert('Please enter valid latitude and longitude');
+                return;
+            }
+
+            const standardUrl = generateMapUrl(lat, lng, false);
+            const simplifiedUrl = generateMapUrl(lat, lng, true);
+            
+            document.getElementById('urlDisplay').style.display = 'block';
+            document.getElementById('urlDisplay').innerHTML = `
+                <strong>Generated URL:</strong><br>
+                ${standardUrl}
+                <br><br>
+                <strong>URL Length:</strong> ${standardUrl.length} characters
+                <br>
+                <strong>Valid URL:</strong> ${isValidUrl(standardUrl) ? '✅ Yes' : '❌ No'}
+            `;
+
+            // Test standard map
+            testMapImage(standardUrl, 'standardMapPreview', 'Standard Map');
+            
+            // Test simplified map
+            testMapImage(simplifiedUrl, 'simplifiedMapPreview', 'Simplified Map');
+        }
+
+        function testMapImage(url, containerId, title) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '<p style="text-align: center; padding: 40px; color: #666;">🔄 Loading map...</p>';
+            
+            const img = new Image();
+            
+            img.onload = function() {
+                container.innerHTML = `
+                    <img src="${url}" alt="${title}" style="width: 100%; height: auto;">
+                    <div style="padding: 10px; background: #4CAF50; color: white; text-align: center;">
+                        ✅ ${title} loaded successfully
+                    </div>
+                `;
+                updateTestResults(`✅ ${title} loaded successfully`, 'success');
+            };
+            
+            img.onerror = function(error) {
+                container.innerHTML = `
+                    <div style="padding: 40px; text-align: center; background: #ffebee; color: #d32f2f;">
+                        ❌ Failed to load ${title}
+                        <br><small>Check console for details</small>
+                    </div>
+                `;
+                console.error(`Failed to load ${title}:`, error);
+                console.error(`URL: ${url}`);
+                updateTestResults(`❌ ${title} failed to load`, 'error');
+            };
+            
+            img.src = url;
+        }
+
+        function updateTestResults(message, type) {
+            const resultsDiv = document.getElementById('testResults');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#ff9800';
+            
+            resultsDiv.innerHTML += `
+                <div style="padding: 10px; margin: 5px 0; border-left: 4px solid ${color}; background: ${type === 'success' ? '#f1f8e9' : type === 'error' ? '#ffebee' : '#fff3e0'};">
+                    <strong>${timestamp}:</strong> ${message}
+                </div>
+            `;
+        }
+
+        function isValidUrl(string) {
+            try {
+                new URL(string);
+                return string.length < 8192; // Google Maps URL limit
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function testWithDifferentParams() {
+            const lat = document.getElementById('latitude').value;
+            const lng = document.getElementById('longitude').value;
+            
+            // Test with minimal parameters
+            const minimalUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=10&size=300x200&key=YOUR_API_KEY_HERE`;
+            
+            updateTestResults('Testing minimal parameters map...', 'info');
+            testMapImage(minimalUrl, 'simplifiedMapPreview', 'Minimal Parameters Map');
+        }
+
+        function testApiKey() {
+            const apiKey = 'YOUR_API_KEY_HERE';
+            const testUrl = `https://maps.googleapis.com/maps/api/staticmap?center=40.7128,-74.0060&zoom=10&size=100x100&key=${apiKey}`;
+            
+            const resultDiv = document.getElementById('apiKeyResult');
+            resultDiv.innerHTML = '🔄 Testing API key...';
+            
+            const img = new Image();
+            img.onload = function() {
+                resultDiv.innerHTML = '<div style="color: #4CAF50; margin-top: 10px;">✅ API Key is valid and working</div>';
+            };
+            img.onerror = function() {
+                resultDiv.innerHTML = '<div style="color: #f44336; margin-top: 10px;">❌ API Key failed - check Google Cloud Console</div>';
+            };
+            img.src = testUrl;
+        }
+
+        function testNetworkConnectivity() {
+            const resultDiv = document.getElementById('networkResult');
+            resultDiv.innerHTML = '🔄 Testing network connectivity...';
+            
+            fetch('https://maps.googleapis.com/maps/api/staticmap?center=0,0&zoom=1&size=1x1&key=test', { mode: 'no-cors' })
+                .then(() => {
+                    resultDiv.innerHTML = '<div style="color: #4CAF50; margin-top: 10px;">✅ Can reach Google Maps servers</div>';
+                })
+                .catch((error) => {
+                    resultDiv.innerHTML = `<div style="color: #f44336; margin-top: 10px;">❌ Network connectivity issue: ${error.message}</div>`;
+                });
+        }
+
+        function openGoogleCloudConsole() {
+            window.open('https://console.cloud.google.com/apis/library/static-maps-backend.googleapis.com', '_blank');
+        }
+
+        // Auto-test on page load
+        window.onload = function() {
+            setTimeout(() => {
+                generateAndTestMapUrl();
+                testApiKey();
+            }, 1000);
+        };
+    </script>
+</body>
+</html>

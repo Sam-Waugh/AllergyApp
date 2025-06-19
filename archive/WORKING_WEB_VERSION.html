@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Allergy App - Web Test Version</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .app-container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            min-height: 600px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 1.8em;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 0.9em;
+        }
+        
+        .content {
+            padding: 20px;
+        }
+        
+        .weather-card {
+            background: #f8f9ff;
+            border: 1px solid #e1e5ff;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 15px 0;
+            text-align: center;
+        }
+        
+        .location {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .temperature {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin: 10px 0;
+        }
+        
+        .pollen-info {
+            background: #fff4e6;
+            border: 1px solid #ffd580;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .pollen-level {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            color: white;
+            font-weight: bold;
+            margin: 5px;
+        }
+        
+        .level-low { background: #4CAF50; }
+        .level-moderate { background: #FFC107; }
+        .level-high { background: #FF9800; }
+        .level-very-high { background: #F44336; }
+        
+        .forecast-list {
+            margin-top: 20px;
+        }
+        
+        .forecast-item {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .day-name {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .date-info {
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .pollen-types {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        
+        .pollen-tag {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        
+        .grass { background: #a8e6cf; color: #2d5a2d; }
+        .tree { background: #dda0dd; color: #4b0082; }
+        .weed { background: #ffb347; color: #8b4513; }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .error {
+            background: #ffebee;
+            border: 1px solid #ffcdd2;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #c62828;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        button {
+            flex: 1;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4CAF50;
+        }
+        
+        .status-indicator.error {
+            background: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Simulated location detection (web version)
+        const getCurrentLocation = () => {
+            return new Promise((resolve, reject) => {
+                if ("geolocation" in navigator) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            resolve({
+                                lat: position.coords.latitude,
+                                lon: position.coords.longitude
+                            });
+                        },
+                        (error) => {
+                            // Fallback to New York for demo
+                            resolve({ lat: 40.7128, lon: -74.0060 });
+                        }
+                    );
+                } else {
+                    resolve({ lat: 40.7128, lon: -74.0060 });
+                }
+            });
+        };
+
+        // API call to backend
+        const fetchPollenData = async (lat, lon) => {
+            try {
+                const response = await fetch(`http://localhost:8090/api/v1/environment/public/current?lat=${lat}&lon=${lon}`);
+                if (!response.ok) throw new Error('API call failed');
+                return await response.json();
+            } catch (error) {
+                throw new Error(`Backend connection error: ${error.message}`);
+            }
+        };
+
+        // Main App Component
+        function AllergyApp() {
+            const [weatherData, setWeatherData] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+            const [location, setLocation] = useState(null);
+
+            const loadData = async () => {
+                setLoading(true);
+                setError(null);
+                
+                try {
+                    // Get user location
+                    const loc = await getCurrentLocation();
+                    setLocation(loc);
+                    
+                    // Fetch pollen data
+                    const data = await fetchPollenData(loc.lat, loc.lon);
+                    setWeatherData(data);
+                } catch (err) {
+                    setError(err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                loadData();
+            }, []);
+
+            const getPollenLevelClass = (level) => {
+                if (!level) return 'level-moderate';
+                const l = level.toLowerCase();
+                if (l.includes('low')) return 'level-low';
+                if (l.includes('moderate')) return 'level-moderate';
+                if (l.includes('high')) return 'level-high';
+                return 'level-moderate';
+            };
+
+            const getPollenTypeClass = (code) => {
+                if (!code) return 'grass';
+                const c = code.toLowerCase();
+                if (c.includes('grass')) return 'grass';
+                if (c.includes('tree')) return 'tree';
+                if (c.includes('weed')) return 'weed';
+                return 'grass';
+            };
+
+            return (
+                <div className="app-container">
+                    <div className="status-indicator" className={error ? 'error' : ''}></div>
+                    
+                    <div className="header">
+                        <h1>🌿 Allergy App</h1>
+                        <p>Web Test Version - Real API Integration</p>
+                    </div>
+                    
+                    <div className="content">
+                        {loading && (
+                            <div className="loading">
+                                <div>🔄 Loading your location and pollen data...</div>
+                            </div>
+                        )}
+                        
+                        {error && (
+                            <div className="error">
+                                <strong>Error:</strong> {error}
+                                <br />
+                                <small>Make sure the backend server is running on port 8090</small>
+                            </div>
+                        )}
+                        
+                        {weatherData && (
+                            <>
+                                <div className="weather-card">
+                                    <div className="location">{weatherData.location}</div>
+                                    <div className="temperature">{weatherData.temperature}°C</div>
+                                    <div>💧 {weatherData.humidity}% humidity</div>
+                                    <div>🌤️ {weatherData.weather_conditions.replace('_', ' ')}</div>
+                                </div>
+                                
+                                <div className="pollen-info">
+                                    <h3>🌸 Pollen Information</h3>
+                                    <div className={`pollen-level ${getPollenLevelClass(weatherData.pollen_count)}`}>
+                                        {weatherData.pollen_count.toUpperCase()}
+                                    </div>
+                                </div>
+                                
+                                {weatherData.daily_pollen_info && weatherData.daily_pollen_info.length > 0 && (
+                                    <div className="forecast-list">
+                                        <h3>📅 5-Day Pollen Forecast</h3>
+                                        {weatherData.daily_pollen_info.map((day, index) => (
+                                            <div key={index} className="forecast-item">
+                                                <div>
+                                                    <div className="day-name">
+                                                        {index === 0 ? 'Today' : 
+                                                         index === 1 ? 'Tomorrow' :
+                                                         new Date(day.date).toLocaleDateString('en-US', { weekday: 'long' })}
+                                                    </div>
+                                                    <div className="date-info">{day.date}</div>
+                                                    <div className="pollen-types">
+                                                        {day.pollen_types.map((pollen, pIndex) => (
+                                                            <span key={pIndex} className={`pollen-tag ${getPollenTypeClass(pollen.code)}`}>
+                                                                {pollen.display_name}: {pollen.index_value}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className={`pollen-level ${getPollenLevelClass(day.overall_index <= 1 ? 'low' : day.overall_index <= 3 ? 'moderate' : 'high')}`}>
+                                                    {day.overall_index}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
+                        )}
+                        
+                        <div className="buttons">
+                            <button onClick={loadData} disabled={loading}>
+                                {loading ? '🔄 Loading...' : '🔄 Refresh Data'}
+                            </button>
+                        </div>
+                        
+                        {location && (
+                            <div style={{marginTop: '20px', padding: '10px', background: '#f5f5f5', borderRadius: '8px', fontSize: '0.9em', color: '#666'}}>
+                                <strong>📍 Your Location:</strong><br />
+                                Latitude: {location.lat.toFixed(4)}<br />
+                                Longitude: {location.lon.toFixed(4)}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<AllergyApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>

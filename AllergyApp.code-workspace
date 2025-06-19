@@ -1,0 +1,27 @@
+{
+    "folders": [
+        {
+            "name": "Allergy App",
+            "path": "."
+        }
+    ],
+    "settings": {
+        "python.defaultInterpreterPath": "./backend/venv/Scripts/python.exe",
+        "python.terminal.activateEnvironment": true,
+        "python.analysis.extraPaths": [
+            "./backend",
+            "./backend/venv/Lib/site-packages"
+        ],
+        "python.analysis.autoSearchPaths": true,
+        "python.analysis.useLibraryCodeForTypes": true,
+        "python.analysis.autoImportCompletions": true,
+        "python.analysis.typeCheckingMode": "basic"
+    },
+    "extensions": {
+        "recommendations": [
+            "ms-python.python",
+            "ms-python.pylint",
+            "ms-toolsai.jupyter"
+        ]
+    }
+}
