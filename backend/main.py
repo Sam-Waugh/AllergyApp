@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-from routers import logs, photos, profiles, environment, research, auth
+from routers import logs, photos, profiles, environment, research, auth, children
 from database.database import engine
 from models.models import Base
 
@@ -37,6 +37,7 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Include routers
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["authentication"])
+app.include_router(children.router, prefix="/api/v1", tags=["children"])
 app.include_router(logs.router, prefix="/api/v1/logs", tags=["logs"])
 app.include_router(photos.router, prefix="/api/v1/photos", tags=["photos"])
 app.include_router(profiles.router, prefix="/api/v1/profiles", tags=["profiles"])
