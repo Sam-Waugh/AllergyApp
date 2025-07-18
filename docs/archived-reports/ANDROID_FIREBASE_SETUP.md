@@ -17,7 +17,7 @@ EXPO_PUBLIC_FIREBASE_TEST_MODE=false
 
 # Real Firebase configuration
 EXPO_PUBLIC_FIREBASE_PROJECT_ID=allergyapp-1a030
-EXPO_PUBLIC_FIREBASE_APP_ID=1:683185921702:web:5cfe5d040da7d482001e67
+EXPO_PUBLIC_FIREBASE_APP_ID=your_app_id_here
 ```
 
 ### Backend (.env) ✅ Configured  

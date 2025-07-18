@@ -56,3 +56,4 @@ web-build/
 
 # Google config
 google-services.json
+firebase-service-account.json
