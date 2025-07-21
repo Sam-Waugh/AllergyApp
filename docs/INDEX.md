@@ -13,6 +13,7 @@ Essential guides for setting up and configuring the application:
   - [`API_KEY_SETUP_GUIDE.md`](setup-guides/API_KEY_SETUP_GUIDE.md) - API keys configuration
   - [`GOOGLE_CLOUD_SETUP_GUIDE.md`](setup-guides/GOOGLE_CLOUD_SETUP_GUIDE.md) - Google Cloud Platform setup
   - [`GOOGLE_MAPS_SETUP_GUIDE.md`](setup-guides/GOOGLE_MAPS_SETUP_GUIDE.md) - Google Maps API setup
+  - [`OPENAI_REPORT_GENERATION.md`](setup-guides/OPENAI_REPORT_GENERATION.md) - 🤖 AI-powered medical report generation
 
 - **Firebase Setup:**
   - [`FIREBASE_SETUP_GUIDE.md`](setup-guides/FIREBASE_SETUP_GUIDE.md) - Firebase basic setup

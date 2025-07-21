@@ -62,6 +62,7 @@ npm start
 
 ## 📱 Features
 
+- **🤖 AI-Powered Reports**: OpenAI GPT-4 generated medical reports prioritizing serious reactions
 - **PDF Generation**: Cross-platform doctor reports (web + mobile)
 - **Pollen Tracking**: Real-time pollen data and maps  
 - **Allergy Management**: Track symptoms, medications, and triggers
@@ -82,6 +83,7 @@ npm start
 - FastAPI (Python)
 - SQLAlchemy ORM
 - JWT Authentication
+- OpenAI GPT-4 API integration
 - Google Pollen API integration
 - Google Maps API integration
 
@@ -129,6 +131,11 @@ Use the integrated tasks for development:
 ### Authentication
 - `POST /api/v1/auth/token` - Get access token
 - `POST /api/v1/auth/register` - Register new user
+
+### AI Report Generation
+- `POST /api/v1/reports/generate` - Generate comprehensive allergy report
+- `POST /api/v1/reports/generate-text` - Generate text-based report
+- `GET /api/v1/reports/child/{id}/summary` - Get child summary for reports
 
 ### Environment Data
 - `GET /api/v1/environment/{location}` - Get pollen and weather data

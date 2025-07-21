@@ -103,9 +103,17 @@ def get_firebase_credentials() -> dict:
     try:
         # Try to get credentials from service account file first
         credentials_file = os.getenv('FIREBASE_CREDENTIALS')
-        if credentials_file and os.path.exists(credentials_file):
-            with open(credentials_file, 'r') as f:
-                return json.load(f)
+        if credentials_file:
+            # Handle relative paths
+            if not os.path.isabs(credentials_file):
+                credentials_file = os.path.join(os.path.dirname(__file__), '..', credentials_file)
+            
+            if os.path.exists(credentials_file):
+                print(f"Loading Firebase credentials from: {credentials_file}")
+                with open(credentials_file, 'r') as f:
+                    return json.load(f)
+            else:
+                print(f"Firebase credentials file not found: {credentials_file}")
         
         # Fallback to environment variables for individual components
         creds_dict = {
@@ -146,7 +154,8 @@ def initialize_firebase() -> Any:
         return _firebase_app
     
     # Check if we're in test mode
-    if os.getenv("FIREBASE_TEST_MODE", "true").lower() == "true":
+    test_mode = os.getenv("FIREBASE_TEST_MODE", "false").lower() == "true"
+    if test_mode:
         logger.info("Firebase running in test mode - using mock implementation")
         _firebase_app = "test_mode"  # Mock app for testing
         return _firebase_app
@@ -182,7 +191,8 @@ def get_firestore_client():
         return _firestore_client
     
     # Check if we're in test mode
-    if os.getenv("FIREBASE_TEST_MODE", "true").lower() == "true":
+    test_mode = os.getenv("FIREBASE_TEST_MODE", "false").lower() == "true"
+    if test_mode:
         logger.info("Using mock Firestore client for testing")
         _firestore_client = MockFirestoreClient()
         return _firestore_client

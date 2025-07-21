@@ -378,3 +378,89 @@ class EnhancedDailyLogResponse(EnhancedDailyLogBase):
 
 # Update forward references  
 EnhancedDailyLogResponse.model_rebuild()
+
+# Report Generation schemas
+class ReportGenerationRequest(BaseModel):
+    child_id: int
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    include_photos: bool = False
+    report_type: str = "comprehensive"  # "comprehensive", "summary", "medical_history"
+
+class FirestoreReportGenerationRequest(BaseModel):
+    child_id: str  # Firestore document ID (string)
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    include_photos: bool = False
+    report_type: str = "comprehensive"  # "comprehensive", "summary", "medical_history"
+
+class PatientDetails(BaseModel):
+    name: str
+    date_of_birth: datetime
+    age_months: int
+    gender: str
+    emergency_contact: Optional[str] = None
+    parent_name: str
+    parent_email: str
+
+class MedicalHistory(BaseModel):
+    known_allergies: List[str]
+    medications: List[str]
+    medical_conditions: List[str]
+    doctor_name: Optional[str] = None
+    doctor_contact: Optional[str] = None
+
+class ReactionSummary(BaseModel):
+    date: datetime
+    symptoms: List[str]
+    severity_level: str  # "mild", "moderate", "severe"
+    triggers: List[str]
+    treatments_given: List[str]
+    notes: str
+
+class AllergyInfo(BaseModel):
+    allergen: str
+    status: str  # "diagnosed", "suspected"
+    severity: str  # "mild", "moderate", "severe"
+    last_reaction_date: Optional[datetime] = None
+    testing_date: Optional[datetime] = None
+    in_treatment: bool = False
+    avoidance_measures: List[str] = []
+
+class ManagementPlan(BaseModel):
+    emergency_action_plan: str
+    daily_medications: List[str]
+    rescue_medications: List[str]
+    environmental_controls: List[str]
+    dietary_restrictions: List[str]
+    follow_up_recommendations: List[str]
+
+class PlannedAppointment(BaseModel):
+    appointment_type: str
+    scheduled_date: Optional[datetime] = None
+    provider: str
+    purpose: str
+    notes: str
+
+class GeneratedReport(BaseModel):
+    report_id: str
+    generated_at: datetime
+    report_type: str
+    patient_details: PatientDetails
+    medical_history: MedicalHistory
+    reaction_history: List[ReactionSummary]
+    allergy_testing: List[str]
+    diagnosed_allergies: List[AllergyInfo]
+    suspected_allergies: List[AllergyInfo]
+    allergies_in_treatment: List[AllergyInfo]
+    current_management_plan: ManagementPlan
+    planned_appointments: List[PlannedAppointment]
+    summary: str
+    recommendations: List[str]
+    priority_concerns: List[str]
+    
+class ReportResponse(BaseModel):
+    success: bool
+    report: Optional[GeneratedReport] = None
+    report_text: Optional[str] = None
+    error_message: Optional[str] = None

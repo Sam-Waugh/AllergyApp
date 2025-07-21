@@ -8,12 +8,14 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-from routers import logs, photos, profiles, environment, research, auth, children
-from database.database import engine
-from models.models import Base
+# Import regular routers
+from routers import photos, environment, research
+from routers.reports_firestore import router as reports_router
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+# Import Firestore routers (primary database)
+from routers.firestore_auth import router as firestore_auth_router
+from routers.firestore_profiles import router as firestore_profiles_router
+from routers.firestore_logs import router as firestore_logs_router
 
 app = FastAPI(
     title="Allergy App API",
@@ -35,14 +37,16 @@ if not os.path.exists("uploads"):
     os.makedirs("uploads")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# Include routers
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["authentication"])
-app.include_router(children.router, prefix="/api/v1", tags=["children"])
-app.include_router(logs.router, prefix="/api/v1/logs", tags=["logs"])
+# Include Firestore routers (primary)
+app.include_router(firestore_auth_router, prefix="/api/v1/auth", tags=["authentication"])
+app.include_router(firestore_profiles_router, prefix="/api/v1/profiles", tags=["profiles"])  
+app.include_router(firestore_logs_router, prefix="/api/v1/logs", tags=["logs"])
+
+# Other routers (unchanged for now)
 app.include_router(photos.router, prefix="/api/v1/photos", tags=["photos"])
-app.include_router(profiles.router, prefix="/api/v1/profiles", tags=["profiles"])
 app.include_router(environment.router, prefix="/api/v1/environment", tags=["environment"])
 app.include_router(research.router, prefix="/api/v1/research", tags=["research"])
+app.include_router(reports_router, tags=["reports"])
 
 @app.get("/")
 def read_root():
@@ -57,7 +61,6 @@ def health_check():
 def debug_environment_test():
     """Debug endpoint to test environment functionality"""
     try:
-        import os
         from routers.environment import GOOGLE_MAPS_API_KEY
         
         result = {
