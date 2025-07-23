@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Children - Firestore</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .children-list {
+            margin: 20px 0;
+        }
+        .child-item {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        .child-item.deleted {
+            background: #ffe6e6;
+            border-color: #ff9999;
+        }
+        .child-item.renamed {
+            background: #e6ffe6;
+            border-color: #99ff99;
+        }
+        .btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #45a049;
+        }
+        .btn.danger {
+            background: #f44336;
+        }
+        .btn.danger:hover {
+            background: #da190b;
+        }
+        .btn.warning {
+            background: #ff9800;
+        }
+        .btn.warning:hover {
+            background: #e68900;
+        }
+        .result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .result.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .rename-form {
+            display: inline-block;
+            margin-left: 10px;
+        }
+        .rename-input {
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧒 Manage Children - Firestore Database</h1>
+        
+        <div id="status" class="result info">
+            Click "Load Children" to see current children in the database.
+        </div>
+        
+        <div style="text-align: center; margin: 20px 0;">
+            <button class="btn" onclick="loadChildren()">🔄 Load Children</button>
+            <button class="btn warning" onclick="performOperations()">✏️ Rename to Otis & Leo + Delete Test Child</button>
+        </div>
+        
+        <div id="children-list" class="children-list">
+            <!-- Children will be loaded here -->
+        </div>
+        
+        <div id="operations-log" style="margin-top: 20px;">
+            <!-- Operation results will appear here -->
+        </div>
+    </div>
+
+    <script type="module">
+        // Firebase v9+ modular imports
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { 
+            getFirestore, 
+            collection, 
+            getDocs, 
+            doc, 
+            updateDoc, 
+            deleteDoc,
+            query,
+            where
+        } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+        // Firebase configuration - using demo config that works with Firestore emulator
+        // Replace with your actual Firebase config for production
+        const firebaseConfig = {
+            apiKey: "demo-api-key",
+            authDomain: "demo-project.firebaseapp.com",
+            projectId: "demo-project", 
+            storageBucket: "demo-project.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "demo-app-id"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let childrenData = [];
+
+        window.loadChildren = async function() {
+            addResult('🔄 Loading children from Firestore...', 'info');
+            
+            try {
+                // Check if Firebase is properly initialized
+                if (!db) {
+                    throw new Error('Firebase not properly initialized');
+                }
+                
+                const childrenCollection = collection(db, 'children');
+                const snapshot = await getDocs(childrenCollection);
+                
+                childrenData = [];
+                snapshot.forEach(doc => {
+                    childrenData.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+                
+                addResult(`✅ Loaded ${childrenData.length} children from database`, 'success');
+                displayChildren();
+                
+            } catch (error) {
+                let errorMessage = error.message;
+                if (error.code === 'permission-denied') {
+                    errorMessage = 'Access denied. Please check your authentication.';
+                } else if (error.code === 'unavailable') {
+                    errorMessage = 'Firestore service unavailable. Check your connection.';
+                } else if (errorMessage.includes('demo-project')) {
+                    errorMessage = 'Demo Firebase config detected. Please update with your actual Firebase configuration.';
+                }
+                addResult(`❌ Failed to load children: ${errorMessage}`, 'error');
+                console.error('Full error:', error);
+            }
+        };
+
+        function displayChildren() {
+            const container = document.getElementById('children-list');
+            
+            if (childrenData.length === 0) {
+                container.innerHTML = '<div class="result info">No children found in database.</div>';
+                return;
+            }
+            
+            container.innerHTML = '<h3>📋 Current Children:</h3>';
+            
+            childrenData.forEach((child, index) => {
+                const createdDate = child.created_at ? new Date(child.created_at.seconds * 1000).toLocaleDateString() : 'Unknown';
+                
+                container.innerHTML += `
+                    <div class="child-item" id="child-${index}">
+                        <strong>Name:</strong> ${child.first_name || child.name || 'Unknown'} ${child.last_name || ''}<br>
+                        <strong>ID:</strong> ${child.id}<br>
+                        <strong>Created:</strong> ${createdDate}<br>
+                        <strong>Gender:</strong> ${child.gender || 'Unknown'}<br>
+                        <div class="rename-form">
+                            <input type="text" class="rename-input" id="rename-${index}" placeholder="New name" />
+                            <button class="btn" onclick="renameChild('${child.id}', ${index})">✏️ Rename</button>
+                            <button class="btn danger" onclick="deleteChild('${child.id}', ${index})">🗑️ Delete</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        window.renameChild = async function(childId, index) {
+            const newName = document.getElementById(`rename-${index}`).value.trim();
+            
+            if (!newName) {
+                addResult('❌ Please enter a new name', 'error');
+                return;
+            }
+            
+            try {
+                const childRef = doc(db, 'children', childId);
+                await updateDoc(childRef, {
+                    first_name: newName,
+                    name: newName, // Update both fields for compatibility
+                    updated_at: new Date()
+                });
+                
+                addResult(`✅ Renamed child to "${newName}"`, 'success');
+                
+                // Update local data and UI
+                childrenData[index].first_name = newName;
+                childrenData[index].name = newName;
+                document.getElementById(`child-${index}`).classList.add('renamed');
+                
+            } catch (error) {
+                addResult(`❌ Failed to rename child: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        window.deleteChild = async function(childId, index) {
+            if (!confirm('Are you sure you want to delete this child? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                const childRef = doc(db, 'children', childId);
+                await deleteDoc(childRef);
+                
+                addResult(`✅ Deleted child successfully`, 'success');
+                
+                // Update UI
+                document.getElementById(`child-${index}`).classList.add('deleted');
+                document.getElementById(`child-${index}`).innerHTML += '<br><strong style="color: red;">DELETED</strong>';
+                
+            } catch (error) {
+                addResult(`❌ Failed to delete child: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        window.performOperations = async function() {
+            if (childrenData.length === 0) {
+                addResult('❌ Please load children first', 'error');
+                return;
+            }
+            
+            addResult('🔄 Starting automated operations...', 'info');
+            
+            // Find test child to delete (likely the most recent one)
+            const testChild = childrenData.find(child => 
+                (child.first_name || child.name || '').toLowerCase().includes('test') ||
+                (child.first_name || child.name || '').toLowerCase().includes('child')
+            );
+            
+            if (testChild) {
+                addResult(`🗑️ Found test child: ${testChild.first_name || testChild.name}`, 'info');
+                try {
+                    const childRef = doc(db, 'children', testChild.id);
+                    await deleteDoc(childRef);
+                    addResult(`✅ Deleted test child successfully`, 'success');
+                } catch (error) {
+                    addResult(`❌ Failed to delete test child: ${error.message}`, 'error');
+                }
+            }
+            
+            // Rename remaining children to Otis and Leo
+            const remainingChildren = childrenData.filter(child => child.id !== testChild?.id);
+            const newNames = ['Otis', 'Leo'];
+            
+            for (let i = 0; i < Math.min(remainingChildren.length, newNames.length); i++) {
+                const child = remainingChildren[i];
+                const newName = newNames[i];
+                
+                try {
+                    const childRef = doc(db, 'children', child.id);
+                    await updateDoc(childRef, {
+                        first_name: newName,
+                        name: newName,
+                        updated_at: new Date()
+                    });
+                    addResult(`✅ Renamed child to "${newName}"`, 'success');
+                } catch (error) {
+                    addResult(`❌ Failed to rename child to ${newName}: ${error.message}`, 'error');
+                }
+            }
+            
+            addResult('🎉 Operations completed! Reload to see changes.', 'success');
+        };
+
+        function addResult(message, type = 'info') {
+            const container = document.getElementById('operations-log');
+            const timestamp = new Date().toLocaleTimeString();
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            container.appendChild(resultDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Auto-load on page start
+        window.addEventListener('load', () => {
+            addResult('🚀 Child management tool loaded. Connect to Firebase to begin.', 'info');
+        });
+    </script>
+</body>
+</html>

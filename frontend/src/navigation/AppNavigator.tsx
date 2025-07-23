@@ -16,6 +16,7 @@ import ModernSettingsScreen from '../screens/ModernSettingsScreen';
 import PollenScreen from '../screens/PollenScreen';
 import ModernManageChildrenScreen from '../screens/ModernManageChildrenScreen';
 import AddChildScreen from '../screens/AddChildScreen';
+import EditChildScreen from '../screens/EditChildScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator();
@@ -102,6 +103,16 @@ function TabNavigator() {
           ),
         }}
       />
+      <Tab.Screen
+        name="Profile"
+        component={ModernProfileScreen}
+        options={{
+          tabBarLabel: 'Profile',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-outline" size={size} color={color} />
+          ),
+        }}
+      />
     </Tab.Navigator>
   );
 }
@@ -140,6 +151,11 @@ export default function AppNavigator() {
         name="AddChild"
         component={AddChildScreen}
         options={{ title: 'Add Child' }}
+      />
+      <Stack.Screen
+        name="EditChild"
+        component={EditChildScreen}
+        options={{ title: 'Edit Child' }}
       />
       <Stack.Screen
         name="DoctorReport"

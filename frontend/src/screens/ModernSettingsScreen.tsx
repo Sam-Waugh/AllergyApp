@@ -7,9 +7,13 @@ import {
   SafeAreaView,
   Switch,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { useAuth } from '../contexts/AuthContext';
+import { firebaseService } from '../services/firebaseService';
+import { RootStackParamList } from '../models';
 import {
   TopBar,
   ModernButton,
@@ -29,7 +33,7 @@ interface SettingItem {
 }
 
 export default function ModernSettingsScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const { user, logout } = useAuth();
   
   const [notifications, setNotifications] = useState(true);
@@ -47,6 +51,89 @@ export default function ModernSettingsScreen() {
           style: 'destructive',
           onPress: () => logout(),
         },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      '⚠️ Delete Account',
+      'Are you sure you want to delete your account?\n\nThis action will permanently remove ALL of your data including:\n• All children profiles\n• Daily logs and symptom tracking\n• Photos and attachments\n• App preferences and settings\n\nThis action cannot be undone.',
+      [
+        { 
+          text: 'Cancel', 
+          style: 'cancel' 
+        },
+        {
+          text: 'Yes, Delete My Account',
+          style: 'destructive',
+          onPress: () => {
+            // Second confirmation for extra safety
+            Alert.alert(
+              '🛑 Final Confirmation',
+              'This is your last chance to cancel.\n\nType "DELETE" in the confirmation that follows to permanently delete your entire account and ALL data.',
+              [
+                { 
+                  text: 'Cancel', 
+                  style: 'cancel' 
+                },
+                {
+                  text: 'I Understand, Proceed',
+                  style: 'destructive',
+                  onPress: () => {
+                    // Third and final confirmation
+                    Alert.prompt(
+                      '💀 DELETE ACCOUNT',
+                      'Type "DELETE" (in capital letters) to confirm account deletion:',
+                      [
+                        { 
+                          text: 'Cancel', 
+                          style: 'cancel' 
+                        },
+                        {
+                          text: 'Delete Account',
+                          style: 'destructive',
+                          onPress: async (text) => {
+                            if (text === 'DELETE') {
+                              try {
+                                await firebaseService.deleteCurrentUserAccount();
+                                await logout();
+                                Alert.alert(
+                                  'Account Deleted',
+                                  'Your account and all data have been permanently deleted.',
+                                  [
+                                    {
+                                      text: 'OK',
+                                      onPress: () => {
+                                        navigation.reset({
+                                          index: 0,
+                                          routes: [{ name: 'TabNavigator' }],
+                                        });
+                                      }
+                                    }
+                                  ]
+                                );
+                              } catch (error) {
+                                console.error('Error deleting account:', error);
+                                Alert.alert('Error', `Failed to delete account: ${error.message}`);
+                              }
+                            } else {
+                              Alert.alert(
+                                'Deletion Cancelled',
+                                'Account deletion was cancelled. You must type "DELETE" exactly to confirm.'
+                              );
+                            }
+                          }
+                        }
+                      ],
+                      'plain-text'
+                    );
+                  }
+                }
+              ]
+            );
+          }
+        }
       ]
     );
   };
@@ -138,8 +225,15 @@ export default function ModernSettingsScreen() {
   ];
 
   const renderSettingItem = (item: SettingItem) => {
+    const ItemWrapper = (item.type === 'navigation' || item.type === 'action') ? TouchableOpacity : View;
+    
     return (
-      <View key={item.id} style={styles.settingItem}>
+      <ItemWrapper 
+        key={item.id} 
+        style={styles.settingItem}
+        onPress={item.onPress}
+        activeOpacity={0.7}
+      >
         <View style={styles.settingIcon}>
           <Ionicons name={item.icon} size={24} color="#666666" />
         </View>
@@ -160,11 +254,11 @@ export default function ModernSettingsScreen() {
               thumbColor={item.value ? '#FFFFFF' : '#FFFFFF'}
             />
           )}
-          {item.type === 'navigation' && (
+          {(item.type === 'navigation' || item.type === 'action') && (
             <Ionicons name="chevron-forward" size={20} color="#CCCCCC" />
           )}
         </View>
-      </View>
+      </ItemWrapper>
     );
   };
 
@@ -215,6 +309,25 @@ export default function ModernSettingsScreen() {
             onPress={handleLogout}
             style={styles.signOutButton}
           />
+        </View>
+
+        {/* Danger Zone */}
+        <View style={styles.section}>
+          <Text style={styles.dangerZoneTitle}>⚠️ Danger Zone</Text>
+          <View style={styles.dangerZoneCard}>
+            <View style={styles.dangerZoneContent}>
+              <Text style={styles.dangerZoneItemTitle}>Delete Account</Text>
+              <Text style={styles.dangerZoneItemSubtitle}>
+                Permanently delete your account and all associated data. This action cannot be undone.
+              </Text>
+              <ModernButton
+                title="💀 Delete Account"
+                variant="outline"
+                onPress={handleDeleteAccount}
+                style={styles.dangerButton}
+              />
+            </View>
+          </View>
         </View>
 
         {/* App Version */}
@@ -316,6 +429,42 @@ const styles = StyleSheet.create({
   },
   signOutButton: {
     borderColor: '#F44336',
+  },
+  dangerZoneTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#F44336',
+    marginBottom: 12,
+  },
+  dangerZoneCard: {
+    backgroundColor: '#FFF5F5',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
+    shadowColor: '#F44336',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  dangerZoneContent: {
+    padding: 20,
+  },
+  dangerZoneItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#D32F2F',
+    marginBottom: 8,
+  },
+  dangerZoneItemSubtitle: {
+    fontSize: 14,
+    color: '#F44336',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  dangerButton: {
+    borderColor: '#F44336',
+    backgroundColor: 'transparent',
   },
   versionSection: {
     alignItems: 'center',

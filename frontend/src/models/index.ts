@@ -31,6 +31,7 @@ export interface DailyLog {
   notes: string;
   weather?: WeatherData;
   location?: string;
+  photos?: PhotoEntry[]; // Add photos to daily log interface
   createdAt: string;
 }
 
@@ -38,11 +39,14 @@ export interface PhotoEntry {
   id: string;
   childId: string;
   logId?: string;
-  photoUrl: string;
+  photoUrl?: string; // For cloud-stored photos (legacy)
+  localUri?: string; // For local device photos
   description: string;
   tags: string[];
   bodyPart?: string;
   severity?: number;
+  photoType?: string;
+  takenAt?: string;
   createdAt: string;
 }
 
@@ -218,6 +222,7 @@ export type RootStackParamList = {
   Settings: undefined;
   ManageChildren: undefined;
   AddChild: { onChildAdded?: () => void };
+  EditChild: { childId: string };
 };
 
 // Form types
@@ -232,6 +237,12 @@ export interface DailyLogForm {
   mood: number;
   triggers: string[];
   notes: string;
+  photos?: {
+    uri: string;
+    description: string;
+    bodyPart?: string;
+    severity?: number;
+  }[];
 }
 
 export interface ProfileForm {

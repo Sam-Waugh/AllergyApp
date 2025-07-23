@@ -4,13 +4,15 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { useAuth } from '../contexts/AuthContext';
 import { firebaseService } from '../services/firebaseService';
+import { RootStackParamList } from '../models';
 import {
   TopBar,
   Avatar,
@@ -19,8 +21,10 @@ import {
   Chip,
 } from '../components/modern';
 
+type NavigationProp = StackNavigationProp<RootStackParamList>;
+
 export default function ModernProfileScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [children, setChildren] = useState<any[]>([]);
@@ -51,21 +55,40 @@ export default function ModernProfileScreen() {
   const selectedChild = children.find(child => child.child_id === selectedChildId);
 
   const handleAddChild = () => {
-    navigation.navigate('AddChild' as never);
+    navigation.navigate('AddChild', { onChildAdded: loadChildren });
   };
 
   const handleManageChildren = () => {
-    navigation.navigate('ManageChildren' as never);
+    Alert.alert(
+      'Manage Children',
+      'Choose an action:',
+      [
+        {
+          text: 'Add New Child',
+          onPress: handleAddChild,
+        },
+        {
+          text: 'Navigate to Manager',
+          onPress: () => navigation.navigate('ManageChildren'),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
   };
 
   const handleEditProfile = () => {
     if (selectedChild) {
-      navigation.navigate('EditChild' as never);
+      // Note: EditChild route doesn't exist in RootStackParamList, this might need to be created
+      console.log('Edit profile for child:', selectedChild);
+      Alert.alert('Edit Profile', 'Edit profile functionality needs to be implemented');
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <TopBar
         title="Profile"
         actions={[
@@ -77,7 +100,7 @@ export default function ModernProfileScreen() {
           {
             icon: 'settings-outline',
             label: 'Settings',
-            onPress: () => navigation.navigate('Settings' as never),
+            onPress: () => navigation.navigate('Settings'),
           },
         ]}
       />
@@ -91,10 +114,9 @@ export default function ModernProfileScreen() {
                 name={user.name || user.email} 
                 size="large"
               />
-              <View style={styles.userDetails}>
-                <Text style={styles.userName}>{user.name || 'User'}</Text>
+              {/* <View style={styles.userDetails}>
                 <Text style={styles.userEmail}>{user.email}</Text>
-              </View>
+              </View> */}
             </View>
           </View>
         )}
@@ -150,7 +172,7 @@ export default function ModernProfileScreen() {
                 <ModernButton
                   title="View Daily Logs"
                   variant="primary"
-                  onPress={() => navigation.navigate('DailyLog' as never, { childId: selectedChildId } as never)}
+                  onPress={() => navigation.navigate('DailyLog', { childId: selectedChildId })}
                   style={styles.actionButton}
                 />
                 <ModernButton
@@ -203,11 +225,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   userInfo: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 8,
+    padding: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -219,15 +241,17 @@ const styles = StyleSheet.create({
   },
   userDetails: {
     flex: 1,
+    justifyContent: 'flex-start',
+    marginLeft: 5,
   },
   userName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#1A1A1A',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   userEmail: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666666',
   },
   childrenChips: {

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  SafeAreaView,
   StyleSheet,
   StatusBar,
 } from 'react-native';
@@ -32,7 +31,7 @@ const TopBar: React.FC<TopBarProps> = ({
   actions = [],
 }) => {
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.surface} />
       <View style={styles.content}>
         {showBack && (
@@ -62,7 +61,7 @@ const TopBar: React.FC<TopBarProps> = ({
           ))}
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 

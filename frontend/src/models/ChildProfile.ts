@@ -236,6 +236,23 @@ export interface CreateChildRequest {
   primary_doctor?: MedicalProvider;
 }
 
+export interface UpdateChildRequest {
+  first_name?: string;
+  last_name?: string;
+  date_of_birth?: string;
+  gender?: GenderType;
+  
+  // Medical information
+  allergies?: AllergyInfo[];
+  medications?: MedicationInfo[];
+  medical_history?: string;
+  notes?: string;
+  
+  // Contact information
+  emergency_contacts?: EmergencyContact[];
+  primary_doctor?: MedicalProvider;
+}
+
 export interface ChildResponse {
   child_id: string;
   first_name: string;

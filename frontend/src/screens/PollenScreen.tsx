@@ -276,7 +276,7 @@ export default function PollenScreen() {
             </View>
           </View>
           
-          {/* Interactive Pollen Map */}
+          Interactive Pollen Map
           <View style={styles.mapCard}>
             <Text style={styles.sectionTitle}>🗺️ Interactive Pollen Map</Text>
             <PollenMapView 

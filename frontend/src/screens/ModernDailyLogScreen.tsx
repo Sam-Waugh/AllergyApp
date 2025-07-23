@@ -11,9 +11,12 @@ import {
   Platform,
   TouchableOpacity,
   FlatList,
+  Image,
 } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList, DailyLogForm, DailyLog } from '../models';
 import { firebaseService } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
@@ -70,6 +73,12 @@ export default function ModernDailyLogScreen() {
     const initializeChildId = async () => {
       console.log('🔄 Initializing child ID...');
       
+      // Initialize Firebase service with user ID
+      if (user?.id) {
+        console.log('Setting Firebase service user ID:', user.id);
+        await firebaseService.setUserId(user.id);
+      }
+      
       // Strategy 1: Use route parameter (highest priority)
       if (route.params?.childId) {
         console.log('✅ Using child ID from route params:', route.params.childId);
@@ -116,6 +125,7 @@ export default function ModernDailyLogScreen() {
     mood: 3,
     triggers: [],
     notes: '',
+    photos: [],
   });
 
   useEffect(() => {
@@ -151,6 +161,104 @@ export default function ModernDailyLogScreen() {
     setLogData(prev => ({ ...prev, notes }));
   };
 
+  const requestPermissions = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Sorry, we need camera roll permissions to access photos.');
+      return false;
+    }
+    return true;
+  };
+
+  const handleAddPhoto = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    Alert.alert(
+      'Add Photo',
+      'Choose how you want to add a photo',
+      [
+        { text: 'Camera', onPress: () => takePhoto() },
+        { text: 'Photo Library', onPress: () => pickImage() },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Sorry, we need camera permissions to take photos.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      addPhotoToLog(result.assets[0].uri);
+    }
+  };
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      addPhotoToLog(result.assets[0].uri);
+    }
+  };
+
+  const addPhotoToLog = (uri: string) => {
+    setLogData(prev => ({
+      ...prev,
+      photos: [...(prev.photos || []), {
+        uri,
+        description: '',
+        bodyPart: '',
+        severity: 0,
+      }],
+    }));
+  };
+
+  const saveIndividualPhoto = async (index: number) => {
+    // DISABLED: Individual photo saving removed - photos are now saved with the complete daily log
+    Alert.alert('Info', 'Photos will be saved when you save the daily log. Please fill in symptoms and mood, then tap "Save Daily Log".');
+  };
+
+  const removePhoto = (index: number) => {
+    setLogData(prev => ({
+      ...prev,
+      photos: prev.photos?.filter((_, i) => i !== index) || [],
+    }));
+  };
+
+  const updatePhotoDescription = (index: number, description: string) => {
+    setLogData(prev => ({
+      ...prev,
+      photos: prev.photos?.map((photo, i) => 
+        i === index ? { ...photo, description } : photo
+      ) || [],
+    }));
+  };
+
+  const updatePhotoBodyPart = (index: number, bodyPart: string) => {
+    setLogData(prev => ({
+      ...prev,
+      photos: prev.photos?.map((photo, i) => 
+        i === index ? { ...photo, bodyPart } : photo
+      ) || [],
+    }));
+  };
+
   const handleSave = async () => {
     if (!user || !childId) {
       Alert.alert('Error', 'Please select a child first');
@@ -159,9 +267,62 @@ export default function ModernDailyLogScreen() {
 
     setLoading(true);
     try {
-      await firebaseService.createDailyLog(childId, logData);
+      // First create the daily log
+      const dailyLog = await firebaseService.createDailyLog(childId, logData);
+      console.log('Created daily log:', dailyLog);
+      console.log('=== DAILY LOG CREATION DEBUG ===');
+      console.log('New daily log ID:', dailyLog.id);
+      console.log('Photos in logData:', logData.photos?.length || 0);
+
+      // Save photo metadata if any exist (photos stay on device)
+      if (logData.photos && logData.photos.length > 0) {
+        console.log('=== PHOTO METADATA SAVING DEBUG ===');
+        console.log('Number of photos to save metadata for:', logData.photos.length);
+        console.log('Daily log ID for linking:', dailyLog.id);
+        console.log('Child ID:', childId);
+        
+        const metadataPromises = logData.photos.map(async (photo, i) => {
+          try {
+            console.log(`=== PHOTO ${i + 1} METADATA SAVE START ===`);
+            console.log(`Photo ${i + 1} URI:`, photo.uri);
+            console.log(`Photo ${i + 1} description:`, photo.description);
+            console.log(`Photo ${i + 1} body part:`, photo.bodyPart);
+            
+            // Save photo metadata only
+            const photoMetadata = {
+              log_entry_id: dailyLog.id,
+              local_uri: photo.uri,
+              description: photo.description || 'Daily log photo',
+              body_area: photo.bodyPart || '',
+              severity_rating: photo.severity || 0,
+              photo_type: 'symptom',
+              original_filename: `daily_log_photo_${Date.now()}_${i + 1}.jpg`,
+              tags: ['daily-log', 'symptom'],
+              taken_at: new Date().toISOString(),
+              file_size: 0, // Will be calculated when needed
+              mime_type: 'image/jpeg'
+            };
+            
+            console.log(`Complete photo metadata for photo ${i + 1}:`, JSON.stringify(photoMetadata, null, 2));
+            const result = await firebaseService.savePhotoMetadata(childId, photoMetadata);
+            
+            console.log(`=== PHOTO ${i + 1} METADATA SAVE RESULT ===`);
+            console.log('Saved photo metadata result:', JSON.stringify(result, null, 2));
+            return result;
+          } catch (photoError) {
+            console.error(`=== PHOTO ${i + 1} METADATA SAVE ERROR ===`);
+            console.error('Photo error details:', photoError);
+            // Don't throw, just log and continue with other photos
+            return null;
+          }
+        });
+        
+        const metadataResults = await Promise.all(metadataPromises);
+        const successfulSaves = metadataResults.filter(result => result !== null);
+        console.log(`Successfully saved metadata for ${successfulSaves.length} out of ${logData.photos.length} photos`);
+      }
       
-      Alert.alert('Success', 'Daily log saved successfully!', [
+      Alert.alert('Success', 'Daily log saved successfully! Photos remain on your device for privacy.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (error) {
@@ -188,7 +349,31 @@ export default function ModernDailyLogScreen() {
       console.log('🔄 Calling firebaseService.getChildDailyLogs...');
       const logs = await firebaseService.getChildDailyLogs(childId, 30);
       console.log('✅ Retrieved logs:', logs.length, 'logs');
-      console.log('Logs data:', JSON.stringify(logs, null, 2));
+      console.log('=== DETAILED LOGS DEBUG ===');
+      logs.forEach((log, index) => {
+        console.log(`=== LOG ${index + 1} DETAILED DEBUG ===`);
+        console.log('Log ID:', log.id);
+        console.log('Log date:', log.date);
+        console.log('Log created at:', log.createdAt);
+        console.log('Has photos:', !!log.photos);
+        console.log('Photo count:', log.photos?.length || 0);
+        
+        if (log.photos && log.photos.length > 0) {
+          console.log('Photos details:');
+          log.photos.forEach((photo, photoIndex) => {
+            console.log(`  Photo ${photoIndex + 1}:`, {
+              id: photo.id,
+              localUri: photo.localUri,
+              photoUrl: photo.photoUrl,
+              description: photo.description,
+              bodyPart: photo.bodyPart,
+              takenAt: photo.takenAt
+            });
+          });
+        } else {
+          console.log('No photos found for this log');
+        }
+      });
       setPreviousLogs(logs);
     } catch (error) {
       console.error('❌ Error loading previous logs:', error);
@@ -344,7 +529,79 @@ export default function ModernDailyLogScreen() {
               value={logData.triggers.length.toString()}
               color="#9C27B0"
             />
+            <MetricCard
+              title="Photos"
+              value={(logData.photos?.length || 0).toString()}
+              color="#FF5722"
+            />
           </View>
+        </View>
+
+        {/* Photos Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Photos</Text>
+            <TouchableOpacity style={styles.addPhotoButton} onPress={handleAddPhoto}>
+              <Ionicons name="camera" size={20} color="#FFFFFF" />
+              <Text style={styles.addPhotoText}>Add Photo</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.sectionSubtitle}>Take photos of symptoms or reactions</Text>
+          
+          {logData.photos && logData.photos.length > 0 ? (
+            <View style={styles.photosGrid}>
+              {logData.photos.map((photo, index) => (
+                <View key={index} style={styles.photoContainer}>
+                  <View style={styles.photoWrapper}>
+                    <Image source={{ uri: photo.uri }} style={styles.photoImage} />
+                    <TouchableOpacity
+                      style={styles.removePhotoButton}
+                      onPress={() => removePhoto(index)}
+                    >
+                      <Ionicons name="close-circle" size={24} color="#F44336" />
+                    </TouchableOpacity>
+                  </View>
+                  <TextInput
+                    style={styles.photoDescriptionInput}
+                    placeholder="Describe this photo..."
+                    value={photo.description}
+                    onChangeText={(text) => updatePhotoDescription(index, text)}
+                    multiline
+                    numberOfLines={2}
+                  />
+                  <TextInput
+                    style={styles.photoBodyPartInput}
+                    placeholder="Body part (e.g., arm, face)"
+                    value={photo.bodyPart}
+                    onChangeText={(text) => updatePhotoBodyPart(index, text)}
+                  />
+                  <TouchableOpacity
+                    style={[styles.savePhotoButton, { backgroundColor: '#2196F3' }]}
+                    onPress={() => Alert.alert(
+                      'Save Daily Log', 
+                      'To save photos, please save the complete daily log with your symptoms and mood. Would you like to save the daily log now?',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Save Daily Log', onPress: () => {
+                          // Scroll to the save button or trigger save
+                          Alert.alert('Info', 'Please scroll down and tap "Save Daily Log" to save all your photos and symptoms together.');
+                        }}
+                      ]
+                    )}
+                  >
+                    <Ionicons name="save" size={16} color="#FFFFFF" />
+                    <Text style={styles.savePhotoText}>Save Daily Log</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.noPhotosContainer}>
+              <Ionicons name="camera-outline" size={48} color="#CCCCCC" />
+              <Text style={styles.noPhotosText}>No photos added yet</Text>
+              <Text style={styles.noPhotosSubtext}>Tap "Add Photo" to capture symptoms</Text>
+            </View>
+          )}
         </View>
 
         {/* Symptoms Section */}
@@ -540,6 +797,46 @@ export default function ModernDailyLogScreen() {
                     <Text style={styles.notesText}>{item.notes}</Text>
                   </View>
                 )}
+
+                {/* Photos */}
+                {item.photos && item.photos.length > 0 && (
+                  <View style={styles.photosOverview}>
+                    <Text style={styles.logSectionTitle}>Photos ({item.photos.length})</Text>
+                    <ScrollView 
+                      horizontal 
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.photosHorizontalContainer}
+                    >
+                      {item.photos.map((photo, photoIndex) => (
+                        <View key={photo.id || photoIndex} style={styles.logPhotoContainer}>
+                          <Image 
+                            source={{ uri: photo.localUri || photo.photoUrl }} 
+                            style={styles.logPhotoImage}
+                            resizeMode="cover"
+                          />
+                          {photo.description && (
+                            <Text style={styles.logPhotoDescription} numberOfLines={2}>
+                              {photo.description}
+                            </Text>
+                          )}
+                          {photo.bodyPart && (
+                            <Text style={styles.logPhotoBodyPart}>
+                              📍 {photo.bodyPart}
+                            </Text>
+                          )}
+                          {photo.takenAt && (
+                            <Text style={styles.logPhotoTime}>
+                              📸 {new Date(photo.takenAt).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </Text>
+                          )}
+                        </View>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
               </View>
             )}
           />
@@ -574,6 +871,108 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666666',
     marginBottom: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  addPhotoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FF5722',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  addPhotoText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  photosGrid: {
+    gap: 16,
+  },
+  photoContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  photoWrapper: {
+    position: 'relative',
+    marginBottom: 8,
+  },
+  photoImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+  },
+  removePhotoButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 12,
+  },
+  photoDescriptionInput: {
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    backgroundColor: '#F8F9FA',
+    marginBottom: 8,
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+  photoBodyPartInput: {
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    backgroundColor: '#F8F9FA',
+  },
+  savePhotoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 8,
+    gap: 6,
+    justifyContent: 'center',
+  },
+  savePhotoText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  noPhotosContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderStyle: 'dashed',
+  },
+  noPhotosText: {
+    fontSize: 16,
+    color: '#666666',
+    marginTop: 12,
+    fontWeight: '500',
+  },
+  noPhotosSubtext: {
+    fontSize: 14,
+    color: '#999999',
+    marginTop: 4,
   },
   metricsRow: {
     flexDirection: 'row',
@@ -772,5 +1171,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666666',
     lineHeight: 20,
+  },
+  // Photos in previous logs styles
+  photosOverview: {
+    marginBottom: 12,
+  },
+  photosHorizontalContainer: {
+    paddingVertical: 8,
+    gap: 12,
+  },
+  logPhotoContainer: {
+    width: 120,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  logPhotoImage: {
+    width: '100%',
+    height: 80,
+    borderRadius: 6,
+    backgroundColor: '#F5F5F5',
+    marginBottom: 4,
+  },
+  logPhotoDescription: {
+    fontSize: 12,
+    color: '#666666',
+    lineHeight: 14,
+    marginBottom: 2,
+  },
+  logPhotoBodyPart: {
+    fontSize: 10,
+    color: '#999999',
+    marginBottom: 1,
+  },
+  logPhotoTime: {
+    fontSize: 10,
+    color: '#999999',
   },
 });

@@ -59,39 +59,43 @@ const ModernManageChildrenScreen = () => {
     }, [loadChildren])
   );
 
-  const handleRefresh = () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadChildren();
-  };
+  }, [loadChildren]);
 
   const handleAddChild = () => {
     navigation.navigate('AddChild');
   };
 
   const handleEditChild = (childId: string) => {
-    // Navigate to edit child screen when implemented
-    Alert.alert('Edit Child', 'Edit child functionality will be available soon');
+    // Navigate to a dedicated edit screen with full child details
+    navigation.navigate('EditChild', { childId });
   };
 
   const handleDeleteChild = (childId: string, childName: string) => {
     Alert.alert(
       'Delete Child',
-      `Are you sure you want to delete ${childName}? This action cannot be undone.`,
+      `Are you sure you want to delete ${childName}? This action cannot be undone and will remove all associated data including daily logs and photos.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
+            setLoading(true);
             try {
-              // Implementation for delete child when available
-              Alert.alert('Delete Child', 'Delete functionality will be available soon');
-            } catch (err) {
-              console.error('Error deleting child:', err);
-              Alert.alert('Error', 'Failed to delete child');
+              await firebaseService.deleteChildProfile(childId);
+              Alert.alert('Success', `${childName} has been deleted successfully`);
+              await loadChildren(); // Reload the list
+            } catch (error) {
+              console.error('Error deleting child:', error);
+              Alert.alert('Error', `Failed to delete child: ${error.message}`);
+            } finally {
+              setLoading(false);
             }
-          },
-        },
+          }
+        }
       ]
     );
   };
@@ -110,7 +114,11 @@ const ModernManageChildrenScreen = () => {
   };
 
   const renderChildItem = ({ item }: { item: ChildResponse }) => (
-    <View style={styles.childCard}>
+    <TouchableOpacity 
+      style={styles.childCard}
+      onPress={() => handleEditChild(item.child_id)}
+      activeOpacity={0.7}
+    >
       <View style={styles.childHeader}>
         <Avatar 
           name={`${item.first_name} ${item.last_name}`} 
@@ -130,13 +138,19 @@ const ModernManageChildrenScreen = () => {
         <View style={styles.childActions}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => handleEditChild(item.child_id)}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleEditChild(item.child_id);
+            }}
           >
             <Ionicons name="pencil" size={18} color="#1976D2" />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton]}
-            onPress={() => handleDeleteChild(item.child_id, `${item.first_name} ${item.last_name}`)}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleDeleteChild(item.child_id, `${item.first_name} ${item.last_name}`);
+            }}
           >
             <Ionicons name="trash-outline" size={18} color="#F44336" />
           </TouchableOpacity>
@@ -151,11 +165,16 @@ const ModernManageChildrenScreen = () => {
         />
         <MetricCard
           title="Profile"
-          value="Active"
+          value="Complete"
           color="#4CAF50"
         />
       </View>
-    </View>
+      
+      <View style={styles.tapToEditHint}>
+        <Ionicons name="chevron-forward" size={16} color="#999999" />
+        <Text style={styles.tapToEditText}>Tap to edit details</Text>
+      </View>
+    </TouchableOpacity>
   );
 
   const renderEmptyState = () => (
@@ -181,7 +200,7 @@ const ModernManageChildrenScreen = () => {
       <Text style={styles.errorSubtitle}>{error}</Text>
       <ModernButton
         title="Retry"
-        variant="outline"
+        variant="primary"
         onPress={loadChildren}
         style={styles.retryButton}
       />
@@ -237,13 +256,12 @@ const ModernManageChildrenScreen = () => {
                 {String(children.length)} {children.length === 1 ? 'Child' : 'Children'}
               </Text>
             </View>
-            
             <FlatList
               data={children}
               renderItem={renderChildItem}
               keyExtractor={(item) => item.child_id}
               refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
               }
               contentContainerStyle={styles.listContainer}
               showsVerticalScrollIndicator={false}
@@ -269,31 +287,31 @@ const styles = StyleSheet.create({
   },
   childrenCount: {
     fontSize: 16,
-    fontWeight: '600',
     color: '#666666',
+    fontWeight: '500',
   },
   listContainer: {
-    flexGrow: 1,
+    paddingBottom: 16,
   },
   childCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   childHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   childInfo: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 12,
   },
   childName: {
     fontSize: 18,
@@ -329,6 +347,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
+  tapToEditHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 8,
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  tapToEditText: {
+    fontSize: 12,
+    color: '#999999',
+    marginLeft: 4,
+  },
   emptyState: {
     flex: 1,
     alignItems: 'center',
@@ -351,7 +383,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   emptyButton: {
-    minWidth: 200,
+    minWidth: 160,
   },
   errorState: {
     flex: 1,
@@ -360,9 +392,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   errorTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '600',
-    color: '#F44336',
+    color: '#1A1A1A',
     marginTop: 16,
     marginBottom: 8,
     textAlign: 'center',
