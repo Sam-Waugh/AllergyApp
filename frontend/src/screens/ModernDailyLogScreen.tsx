@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList, DailyLogForm, DailyLog } from '../models';
 import { firebaseService } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
+import { useChild } from '../contexts/ChildContext';
 import { useAppSelector } from '../store';
 import { Colors } from '../constants/Colors';
 import {
@@ -49,6 +50,7 @@ export default function ModernDailyLogScreen() {
   const route = useRoute<DailyLogRouteProp>();
   const navigation = useNavigation();
   const { user } = useAuth();
+  const { selectedChild, selectedChildId, children, loading: childrenLoading, setSelectedChildId } = useChild();
   const insets = useSafeAreaInsets();
   
   // Get selected child from Redux store as fallback
@@ -56,13 +58,15 @@ export default function ModernDailyLogScreen() {
   
   const [loading, setLoading] = useState(false);
   const [loadingLogs, setLoadingLogs] = useState(false);
-  const [childId, setChildId] = useState(route.params?.childId || '');
+  const [childId, setChildId] = useState(route.params?.childId || selectedChildId || '');
   const [activeTab, setActiveTab] = useState<'new' | 'previous'>('new');
   const [previousLogs, setPreviousLogs] = useState<DailyLog[]>([]);
 
   console.log('=== DAILY LOG SCREEN RENDERED ===');
   console.log('Route params:', route.params);
   console.log('Initial childId from route:', route.params?.childId);
+  console.log('Selected child from global context:', selectedChild);
+  console.log('Selected child ID from global context:', selectedChildId);
   console.log('Selected child from Redux store:', selectedChildFromStore);
   console.log('Current childId state:', childId);
   console.log('User:', user?.email);
@@ -86,24 +90,31 @@ export default function ModernDailyLogScreen() {
         return;
       }
       
-      // Strategy 2: Use Redux store selected child
+      // Strategy 2: Use global child context (preferred)
+      if (selectedChildId) {
+        console.log('✅ Using child ID from global context:', selectedChildId);
+        setChildId(selectedChildId);
+        return;
+      }
+      
+      // Strategy 3: Use Redux store selected child (fallback)
       if (selectedChildFromStore?.id) {
         console.log('✅ Using child ID from Redux store:', selectedChildFromStore.id);
         setChildId(selectedChildFromStore.id);
         return;
       }
       
-      // Strategy 3: Fetch first child from Firebase (fallback)
+      // Strategy 4: Fetch first child from Firebase (last resort)
       if (user && !childId) {
         try {
-          console.log('🔄 No childId from route or store, fetching user children...');
+          console.log('🔄 No childId from route, context, or store, fetching user children...');
           const children = await firebaseService.getUserChildren();
           console.log('📝 User children:', children);
           if (children.length > 0) {
             console.log('✅ Using first child from Firebase:', children[0].child_id);
             setChildId(children[0].child_id);
           } else {
-            console.log('❌ No children found for user');
+            console.log('❌ No profiles found for user');
           }
         } catch (error) {
           console.error('❌ Error getting user children:', error);
@@ -112,7 +123,15 @@ export default function ModernDailyLogScreen() {
     };
     
     initializeChildId();
-  }, [user, route.params?.childId, selectedChildFromStore]);
+  }, [user, route.params?.childId, selectedChildId, selectedChildFromStore]);
+  
+  // Update childId when global context changes
+  useEffect(() => {
+    if (selectedChildId && selectedChildId !== childId) {
+      console.log('🔄 Global profile selection changed, updating childId:', selectedChildId);
+      setChildId(selectedChildId);
+    }
+  }, [selectedChildId]);
   
   const [logData, setLogData] = useState<DailyLogForm>({
     symptoms: {
@@ -452,6 +471,24 @@ export default function ModernDailyLogScreen() {
     return Object.values(logData.symptoms).reduce((sum, val) => sum + val, 0);
   };
 
+  // Show loading state while children are loading
+  if (childrenLoading) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+        <TopBar
+          title="Daily Symptom Log"
+          showBack={true}
+          onBackPress={() => navigation.goBack()}
+        />
+        <View style={styles.loadingContainer}>
+          <Ionicons name="analytics-outline" size={48} color={Colors.primary} />
+          <Text style={styles.loadingText}>Loading profile data...</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
@@ -510,6 +547,49 @@ export default function ModernDailyLogScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Profile Selection */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Select Profile</Text>
+          
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            style={styles.chipContainer}
+            contentContainerStyle={styles.chipContent}
+          >
+            {childrenLoading ? (
+              <Text style={styles.loadingText}>Loading...</Text>
+            ) : children.length > 0 ? (
+              children.map((child) => (
+                <Chip
+                  key={child.child_id}
+                  label={child.first_name}
+                  selected={selectedChildId === child.child_id}
+                  onPress={() => setSelectedChildId(child.child_id)}
+                  style={styles.chip}
+                />
+              ))
+            ) : (
+              <View style={styles.noChildrenContainer}>
+                <Text style={styles.noChildrenText}>No profiles found</Text>
+                <ModernButton
+                  title="Add First Profile"
+                  onPress={() => navigation.navigate('ManageChildren' as never)}
+                  variant="outline"
+                  size="small"
+                />
+              </View>
+            )}
+          </ScrollView>
+          
+          <Text style={styles.sectionInfo}>
+            {selectedChild 
+              ? `Viewing symptoms for ${selectedChild.first_name}`
+              : 'Choose the profile to log symptoms for'
+            }
+          </Text>
+        </View>
+
         {/* Summary Cards */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Today's Overview</Text>
@@ -1209,5 +1289,38 @@ const styles = StyleSheet.create({
   logPhotoTime: {
     fontSize: 10,
     color: '#999999',
+  },
+  // Profile selection styles
+  sectionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 12,
+  },
+  chipContainer: {
+    marginBottom: 12,
+  },
+  chipContent: {
+    paddingHorizontal: 4,
+    gap: 8,
+  },
+  chip: {
+    marginRight: 8,
+  },
+  noChildrenContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+  },
+  noChildrenText: {
+    fontSize: 16,
+    color: '#666666',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  sectionInfo: {
+    fontSize: 14,
+    color: '#666666',
+    fontStyle: 'italic',
   },
 });

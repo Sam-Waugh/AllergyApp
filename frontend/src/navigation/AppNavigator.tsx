@@ -73,15 +73,14 @@ function TabNavigator() {
         initialParams={{ childId: '' }}
       />
       <Tab.Screen
-        name="ImageDiary"
-        component={ImageDiaryScreen}
+        name="DoctorReport"
+        component={ModernDoctorReportScreen}
         options={{
-          tabBarLabel: 'Photos',
+          tabBarLabel: 'Report',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="camera-outline" size={size} color={color} />
+            <Ionicons name="document-text-outline" size={size} color={color} />
           ),
         }}
-        initialParams={{ childId: '' }}
       />
       <Tab.Screen
         name="Research"
@@ -145,12 +144,12 @@ export default function AppNavigator() {
       <Stack.Screen
         name="ManageChildren"
         component={ModernManageChildrenScreen}
-        options={{ title: 'Manage Children' }}
+        options={{ title: 'Manage Profiles' }}
       />
       <Stack.Screen
         name="AddChild"
         component={AddChildScreen}
-        options={{ title: 'Add Child' }}
+        options={{ title: 'Add Profile' }}
       />
       <Stack.Screen
         name="EditChild"
@@ -161,6 +160,11 @@ export default function AppNavigator() {
         name="DoctorReport"
         component={ModernDoctorReportScreen}
         options={{ title: 'Doctor Report' }}
+      />
+      <Stack.Screen
+        name="ImageDiary"
+        component={ImageDiaryScreen}
+        options={{ title: 'Photo Diary' }}
       />
       <Stack.Screen
         name="Settings"

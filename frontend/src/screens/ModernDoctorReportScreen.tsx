@@ -23,6 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { firebaseService } from '../services/firebaseService';
 import { Colors } from '../constants/Colors';
+import { ChildResponse, DailyLog as DailyLogType, PhotoEntry as PhotoEntryType } from '../models';
 import {
   TopBar,
   ModernButton,
@@ -31,13 +32,7 @@ import {
   Chip,
 } from '../components/modern';
 
-interface ChildData {
-  child_id: string;
-  first_name: string;
-  last_name: string;
-  date_of_birth: string;
-  gender: string;
-  age_months: number;
+interface ChildData extends ChildResponse {
   allergies?: {
     confirmed: string[];
     suspected: string[];
@@ -49,29 +44,12 @@ interface ChildData {
   };
 }
 
-interface DailyLog {
-  id: string;
-  date: string;
-  symptoms: {
-    rash: number;
-    cough: number;
-    runnyNose: number;
-    itching: number;
-    wheezing: number;
-  };
-  mood: number;
-  triggers: string[];
-  notes: string;
+interface DailyLog extends DailyLogType {
   photos?: PhotoEntry[];
 }
 
-interface PhotoEntry {
-  id: string;
+interface PhotoEntry extends PhotoEntryType {
   localUri: string;
-  description: string;
-  bodyPart: string;
-  severity: number;
-  takenAt: string;
 }
 
 interface MedicalReport {
@@ -436,6 +414,49 @@ Please share with your healthcare provider for comprehensive allergy management.
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
         showsVerticalScrollIndicator={true}
       >
+        {/* Profile Selection */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Select Profile</Text>
+          
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            style={styles.chipContainer}
+            contentContainerStyle={styles.chipContent}
+          >
+            {loading ? (
+              <Text style={styles.loadingText}>Loading...</Text>
+            ) : children.length > 0 ? (
+              children.map((child) => (
+                <Chip
+                  key={child.child_id}
+                  label={child.first_name}
+                  selected={selectedChildId === child.child_id}
+                  onPress={() => setSelectedChildId(child.child_id)}
+                  style={styles.chip}
+                />
+              ))
+            ) : (
+              <View style={styles.noChildrenContainer}>
+                <Text style={styles.noChildrenText}>No profiles found</Text>
+                <ModernButton
+                  title="Add First Profile"
+                  onPress={() => navigation.navigate('ManageChildren' as never)}
+                  variant="outline"
+                  size="small"
+                />
+              </View>
+            )}
+          </ScrollView>
+          
+          <Text style={styles.sectionInfo}>
+            {selectedChild 
+              ? `Generating report for ${selectedChild.first_name}`
+              : 'Choose the profile to generate a report for'
+            }
+          </Text>
+        </View>
+
         {/* Patient Information Header */}
         {selectedChild && (
           <View style={styles.patientHeader}>
@@ -542,38 +563,40 @@ Please share with your healthcare provider for comprehensive allergy management.
           </View>
         </View>
 
-        {/* Confirmed Allergies */}
+        {/* IgE (Immediate) Allergies */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Confirmed Allergies</Text>
+          <Text style={styles.sectionTitle}>IgE-Mediated (Immediate) Allergies</Text>
+          <Text style={styles.sectionSubtitle}>Immediate hypersensitivity reactions (Type I)</Text>
           <View style={styles.allergiesContainer}>
             {confirmedAllergies.length > 0 ? (
               confirmedAllergies.map((allergy, index) => (
-                <View key={index} style={styles.confirmedAllergyItem}>
-                  <View style={styles.severityIndicator} />
+                <View key={index} style={styles.igeAllergyItem}>
+                  <View style={styles.igeIndicator} />
                   <Text style={styles.allergyName}>{allergy}</Text>
-                  <Text style={styles.allergyStatus}>Confirmed</Text>
+                  <Text style={styles.allergyStatus}>IgE-Mediated</Text>
                 </View>
               ))
             ) : (
-              <Text style={styles.noDataText}>No confirmed allergies recorded</Text>
+              <Text style={styles.noDataText}>No IgE-mediated allergies recorded</Text>
             )}
           </View>
         </View>
 
-        {/* Suspected Allergies */}
+        {/* Non-IgE (Delayed) Allergies */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Suspected Allergies</Text>
+          <Text style={styles.sectionTitle}>Non-IgE-Mediated (Delayed) Allergies</Text>
+          <Text style={styles.sectionSubtitle}>Delayed hypersensitivity reactions (Type IV)</Text>
           <View style={styles.allergiesContainer}>
             {suspectedAllergies.length > 0 ? (
               suspectedAllergies.map((allergy, index) => (
-                <View key={index} style={styles.suspectedAllergyItem}>
-                  <View style={styles.suspectedIndicator} />
+                <View key={index} style={styles.nonIgeAllergyItem}>
+                  <View style={styles.nonIgeIndicator} />
                   <Text style={styles.allergyName}>{allergy}</Text>
-                  <Text style={styles.allergyStatus}>Suspected</Text>
+                  <Text style={styles.allergyStatus}>Non-IgE-Mediated</Text>
                 </View>
               ))
             ) : (
-              <Text style={styles.noDataText}>No suspected allergies recorded</Text>
+              <Text style={styles.noDataText}>No non-IgE-mediated allergies recorded</Text>
             )}
           </View>
         </View>
@@ -717,58 +740,15 @@ Please share with your healthcare provider for comprehensive allergy management.
                         {medicalReport.ai_insights.symptom_patterns}
                       </Text>
                     ) : (
-                      <View>
-                        {/* Symptom Chart Visualization */}
-                        {medicalReport.ai_insights.symptom_patterns.most_frequent_symptoms && (
-                          <View style={styles.chartContainer}>
-                            <Text style={styles.chartTitle}>Most Frequent Symptoms</Text>
-                            <View style={styles.barChartContainer}>
-                              {medicalReport.ai_insights.symptom_patterns.most_frequent_symptoms.map((item: any, idx: number) => {
-                                const maxValue = Math.max(...medicalReport.ai_insights.symptom_patterns.most_frequent_symptoms.map((s: any) => parseFloat(s.average)));
-                                const percentage = (parseFloat(item.average) / maxValue) * 100;
-                                const colors = ['#FF5722', '#2196F3', '#FF9800', '#9C27B0', '#4CAF50'];
-                                return (
-                                  <View key={idx} style={styles.barChartRow}>
-                                    <Text style={styles.barChartLabel}>{item.symptom}</Text>
-                                    <View style={styles.barChartBarContainer}>
-                                      <View 
-                                        style={[
-                                          styles.barChartBar,
-                                          { 
-                                            width: `${percentage}%`,
-                                            backgroundColor: colors[idx % colors.length]
-                                          }
-                                        ]}
-                                      />
-                                    </View>
-                                    <Text style={styles.barChartValue}>{item.average}</Text>
-                                  </View>
-                                );
-                              })}
-                            </View>
+                      <View style={styles.bulletPointContainer}>
+                        {Object.entries(medicalReport.ai_insights.symptom_patterns).map(([key, value], index) => (
+                          <View key={index} style={styles.bulletPoint}>
+                            <Text style={styles.bulletDot}>•</Text>
+                            <Text style={styles.bulletText}>
+                              <Text style={styles.bulletLabel}>{key.replace(/_/g, ' ').toUpperCase()}:</Text> {String(value)}
+                            </Text>
                           </View>
-                        )}
-                        
-                        {/* Summary Stats */}
-                        <View style={styles.statsSummary}>
-                          {medicalReport.ai_insights.symptom_patterns.total_symptom_days && (
-                            <View style={styles.statItem}>
-                              <Text style={styles.statValue}>{medicalReport.ai_insights.symptom_patterns.total_symptom_days}</Text>
-                              <Text style={styles.statLabel}>Total Symptom Days</Text>
-                            </View>
-                          )}
-                          {medicalReport.ai_insights.symptom_patterns.symptom_severity_trend && (
-                            <View style={styles.statItem}>
-                              <Text style={styles.statValue}>
-                                {typeof medicalReport.ai_insights.symptom_patterns.symptom_severity_trend === 'string' 
-                                  ? medicalReport.ai_insights.symptom_patterns.symptom_severity_trend.substring(0, 8) + '...'
-                                  : 'Trend'
-                                }
-                              </Text>
-                              <Text style={styles.statLabel}>Severity Trend</Text>
-                            </View>
-                          )}
-                        </View>
+                        ))}
                       </View>
                     )}
                   </View>
@@ -787,85 +767,15 @@ Please share with your healthcare provider for comprehensive allergy management.
                         {medicalReport.ai_insights.trigger_correlation}
                       </Text>
                     ) : (
-                      <View>
-                        {/* Trigger Impact Chart */}
-                        {medicalReport.ai_insights.trigger_correlation.most_impactful_triggers && (
-                          <View style={styles.chartContainer}>
-                            <Text style={styles.chartTitle}>Most Impactful Triggers</Text>
-                            <View style={styles.triggerChartContainer}>
-                              {medicalReport.ai_insights.trigger_correlation.most_impactful_triggers.map((item: any, idx: number) => {
-                                const maxSeverity = Math.max(...medicalReport.ai_insights.trigger_correlation.most_impactful_triggers.map((t: any) => parseFloat(t.avg_symptom_severity)));
-                                const severityPercentage = (parseFloat(item.avg_symptom_severity) / maxSeverity) * 100;
-                                const maxFrequency = Math.max(...medicalReport.ai_insights.trigger_correlation.most_impactful_triggers.map((t: any) => t.frequency));
-                                const frequencyPercentage = (item.frequency / maxFrequency) * 100;
-                                
-                                return (
-                                  <View key={idx} style={styles.triggerChartItem}>
-                                    <View style={styles.triggerInfo}>
-                                      <Text style={styles.triggerName}>{item.trigger}</Text>
-                                      <View style={styles.triggerMetrics}>
-                                        <Text style={styles.triggerMetricValue}>Severity: {item.avg_symptom_severity}</Text>
-                                        <Text style={styles.triggerMetricValue}>Frequency: {item.frequency}</Text>
-                                      </View>
-                                    </View>
-                                    <View style={styles.triggerBars}>
-                                      <View style={styles.triggerBarRow}>
-                                        <Text style={styles.triggerBarLabel}>Impact</Text>
-                                        <View style={styles.triggerBarContainer}>
-                                          <View 
-                                            style={[
-                                              styles.triggerBar,
-                                              { 
-                                                width: `${severityPercentage}%`,
-                                                backgroundColor: '#FF5722'
-                                              }
-                                            ]}
-                                          />
-                                        </View>
-                                      </View>
-                                      <View style={styles.triggerBarRow}>
-                                        <Text style={styles.triggerBarLabel}>Freq</Text>
-                                        <View style={styles.triggerBarContainer}>
-                                          <View 
-                                            style={[
-                                              styles.triggerBar,
-                                              { 
-                                                width: `${frequencyPercentage}%`,
-                                                backgroundColor: '#2196F3'
-                                              }
-                                            ]}
-                                          />
-                                        </View>
-                                      </View>
-                                    </View>
-                                  </View>
-                                );
-                              })}
-                            </View>
+                      <View style={styles.bulletPointContainer}>
+                        {Object.entries(medicalReport.ai_insights.trigger_correlation).map(([key, value], index) => (
+                          <View key={index} style={styles.bulletPoint}>
+                            <Text style={styles.bulletDot}>•</Text>
+                            <Text style={styles.bulletText}>
+                              <Text style={styles.bulletLabel}>{key.replace(/_/g, ' ').toUpperCase()}:</Text> {String(value)}
+                            </Text>
                           </View>
-                        )}
-                        
-                        {/* Frequency Pie Chart Representation */}
-                        {medicalReport.ai_insights.trigger_correlation.trigger_frequency && (
-                          <View style={styles.chartContainer}>
-                            <Text style={styles.chartTitle}>Trigger Frequency Distribution</Text>
-                            <View style={styles.pieChartContainer}>
-                              {medicalReport.ai_insights.trigger_correlation.trigger_frequency.slice(0, 4).map((item: any, idx: number) => {
-                                const total = medicalReport.ai_insights.trigger_correlation.trigger_frequency.reduce((sum: number, t: any) => sum + t[1], 0);
-                                const percentage = ((item[1] / total) * 100).toFixed(1);
-                                const colors = ['#FF5722', '#2196F3', '#FF9800', '#4CAF50'];
-                                
-                                return (
-                                  <View key={idx} style={styles.pieChartItem}>
-                                    <View style={[styles.pieChartColor, { backgroundColor: colors[idx] }]} />
-                                    <Text style={styles.pieChartLabel}>{item[0]}</Text>
-                                    <Text style={styles.pieChartValue}>{percentage}%</Text>
-                                  </View>
-                                );
-                              })}
-                            </View>
-                          </View>
-                        )}
+                        ))}
                       </View>
                     )}
                   </View>
@@ -884,29 +794,22 @@ Please share with your healthcare provider for comprehensive allergy management.
                         {medicalReport.ai_insights.recommendations}
                       </Text>
                     ) : Array.isArray(medicalReport.ai_insights.recommendations) ? (
-                      <View style={styles.recommendationsContainer}>
-                        <Text style={styles.chartTitle}>Clinical Recommendations</Text>
+                      <View style={styles.bulletPointContainer}>
                         {medicalReport.ai_insights.recommendations.map((recommendation: any, index: number) => (
-                          <View key={index} style={styles.recommendationItem}>
-                            <View style={styles.recommendationIcon}>
-                              <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
-                            </View>
-                            <Text style={styles.recommendationText}>{String(recommendation)}</Text>
+                          <View key={index} style={styles.bulletPoint}>
+                            <Text style={styles.bulletDot}>•</Text>
+                            <Text style={styles.bulletText}>{String(recommendation)}</Text>
                           </View>
                         ))}
                       </View>
                     ) : (
-                      <View style={styles.recommendationsContainer}>
-                        <Text style={styles.chartTitle}>Clinical Recommendations</Text>
+                      <View style={styles.bulletPointContainer}>
                         {Object.entries(medicalReport.ai_insights.recommendations).map(([key, value], index) => (
-                          <View key={index} style={styles.recommendationItem}>
-                            <View style={styles.recommendationIcon}>
-                              <Ionicons name="medical" size={20} color={Colors.primary} />
-                            </View>
-                            <View style={styles.recommendationContent}>
-                              <Text style={styles.recommendationCategory}>{key.replace(/_/g, ' ').toUpperCase()}:</Text>
-                              <Text style={styles.recommendationText}>{String(value)}</Text>
-                            </View>
+                          <View key={index} style={styles.bulletPoint}>
+                            <Text style={styles.bulletDot}>•</Text>
+                            <Text style={styles.bulletText}>
+                              <Text style={styles.bulletLabel}>{key.replace(/_/g, ' ').toUpperCase()}:</Text> {String(value)}
+                            </Text>
                           </View>
                         ))}
                       </View>
@@ -1032,7 +935,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   patientHeaderContent: {
-    flexDirection: 'column',
+    flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
   },
@@ -1130,7 +1033,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     marginBottom: 12,
   },
-  chipContainer: {
+  familyHistoryChipContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
@@ -1150,6 +1053,24 @@ const styles = StyleSheet.create({
   allergiesContainer: {
     gap: 8,
   },
+  igeAllergyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 8,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF5722', // Red for immediate/IgE
+  },
+  nonIgeAllergyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 8,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800', // Orange for delayed/non-IgE
+  },
   confirmedAllergyItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1167,6 +1088,20 @@ const styles = StyleSheet.create({
     padding: 16,
     borderLeftWidth: 4,
     borderLeftColor: Colors.warning,
+  },
+  igeIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF5722', // Red for IgE-mediated
+    marginRight: 12,
+  },
+  nonIgeIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF9800', // Orange for non-IgE
+    marginRight: 12,
   },
   severityIndicator: {
     width: 8,
@@ -1484,184 +1419,37 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
   },
-  // Chart and Visualization Styles
-  chartContainer: {
-    marginBottom: 20,
-  },
-  chartTitle: {
+  // Profile selection styles
+  sectionLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: Colors.textPrimary,
     marginBottom: 12,
-    textAlign: 'center',
   },
-  // Bar Chart Styles
-  barChartContainer: {
+  chipContainer: {
+    marginBottom: 12,
+  },
+  chipContent: {
+    paddingHorizontal: 4,
     gap: 8,
   },
-  barChartRow: {
-    flexDirection: 'row',
+  chip: {
+    marginRight: 8,
+  },
+  noChildrenContainer: {
     alignItems: 'center',
-    gap: 12,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
   },
-  barChartLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: Colors.textPrimary,
-    width: 80,
-    textTransform: 'capitalize',
-  },
-  barChartBarContainer: {
-    flex: 1,
-    height: 20,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  barChartBar: {
-    height: '100%',
-    borderRadius: 10,
-  },
-  barChartValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    minWidth: 35,
-    textAlign: 'right',
-  },
-  // Summary Stats
-  statsSummary: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.primary,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-  // Trigger Chart Styles
-  triggerChartContainer: {
-    gap: 16,
-  },
-  triggerChartItem: {
-    backgroundColor: '#FAFAFA',
-    borderRadius: 8,
-    padding: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
-  },
-  triggerInfo: {
-    marginBottom: 8,
-  },
-  triggerName: {
+  noChildrenText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  triggerMetrics: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  triggerMetricValue: {
-    fontSize: 12,
     color: Colors.textSecondary,
+    marginBottom: 12,
+    textAlign: 'center',
   },
-  triggerBars: {
-    gap: 4,
-  },
-  triggerBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  triggerBarLabel: {
-    fontSize: 10,
-    fontWeight: '600',
+  sectionInfo: {
+    fontSize: 14,
     color: Colors.textSecondary,
-    width: 40,
-  },
-  triggerBarContainer: {
-    flex: 1,
-    height: 12,
-    backgroundColor: '#E8E8E8',
-    borderRadius: 6,
-    overflow: 'hidden',
-  },
-  triggerBar: {
-    height: '100%',
-    borderRadius: 6,
-  },
-  // Pie Chart Styles
-  pieChartContainer: {
-    gap: 8,
-  },
-  pieChartItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 4,
-  },
-  pieChartColor: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-  },
-  pieChartLabel: {
-    fontSize: 14,
-    color: Colors.textPrimary,
-    flex: 1,
-  },
-  pieChartValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    minWidth: 40,
-    textAlign: 'right',
-  },
-  // Recommendations Styles
-  recommendationsContainer: {
-    gap: 12,
-  },
-  recommendationItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#F8FFF8',
-    borderRadius: 8,
-    padding: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.success,
-    gap: 12,
-  },
-  recommendationIcon: {
-    marginTop: 2,
-  },
-  recommendationContent: {
-    flex: 1,
-  },
-  recommendationCategory: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.primary,
-    marginBottom: 4,
-  },
-  recommendationText: {
-    fontSize: 14,
-    color: Colors.textPrimary,
-    lineHeight: 20,
-    flex: 1,
+    fontStyle: 'italic',
   },
 });

@@ -221,7 +221,7 @@ export type RootStackParamList = {
   DoctorReport: { childId: string };
   Settings: undefined;
   ManageChildren: undefined;
-  AddChild: { onChildAdded?: () => void };
+  AddChild: { onProfileAdded?: () => void };
   EditChild: { childId: string };
 };
 

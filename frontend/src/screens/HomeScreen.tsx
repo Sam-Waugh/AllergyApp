@@ -179,7 +179,7 @@ export default function HomeScreen() {
                 style={styles.addChildCard}
                 onPress={() => navigation.navigate('ManageChildren' as never)}
               >
-                <Text style={styles.addChildText}>+ Add Your First Child</Text>
+                <Text style={styles.addChildText}>+ Add Your First Profile</Text>
               </TouchableOpacity>
             )}
             
@@ -189,7 +189,7 @@ export default function HomeScreen() {
               onPress={() => navigation.navigate('ManageChildren' as never)}
             >
               <Text style={styles.addChildIcon}>+</Text>
-              <Text style={styles.addChildText}>Add Child</Text>
+              <Text style={styles.addChildText}>Add Profile</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -300,7 +300,7 @@ export default function HomeScreen() {
           </View>
           {!selectedChild ? (
             <View style={styles.logCard}>
-              <Text style={styles.logDate}>Select a child to view logs</Text>
+              <Text style={styles.logDate}>Select a profile to view logs</Text>
             </View>
           ) : logsLoading ? (
             <View style={styles.logCard}>

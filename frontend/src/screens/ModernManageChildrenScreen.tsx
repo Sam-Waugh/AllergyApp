@@ -180,12 +180,12 @@ const ModernManageChildrenScreen = () => {
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
       <Ionicons name="people-outline" size={64} color="#CCCCCC" />
-      <Text style={styles.emptyTitle}>No Children Added</Text>
+      <Text style={styles.emptyTitle}>No Profiles Added</Text>
       <Text style={styles.emptySubtitle}>
-        Add a child profile to start tracking allergies and symptoms
+        Add a profile to start tracking allergies and symptoms
       </Text>
       <ModernButton
-        title="Add First Child"
+        title="Add First Profile"
         variant="primary"
         onPress={handleAddChild}
         style={styles.emptyButton}
@@ -196,7 +196,7 @@ const ModernManageChildrenScreen = () => {
   const renderErrorState = () => (
     <View style={styles.errorState}>
       <Ionicons name="alert-circle-outline" size={64} color="#F44336" />
-      <Text style={styles.errorTitle}>Error Loading Children</Text>
+      <Text style={styles.errorTitle}>Error Loading Profiles</Text>
       <Text style={styles.errorSubtitle}>{error}</Text>
       <ModernButton
         title="Retry"
@@ -211,7 +211,7 @@ const ModernManageChildrenScreen = () => {
     return (
       <SafeAreaView style={styles.container}>
         <TopBar
-          title="Manage Children"
+          title="Manage Profiles"
           showBack={true}
           onBackPress={() => navigation.goBack()}
           actions={[
@@ -223,7 +223,7 @@ const ModernManageChildrenScreen = () => {
           ]}
         />
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading children...</Text>
+          <Text style={styles.loadingText}>Loading profiles...</Text>
         </View>
       </SafeAreaView>
     );
@@ -232,7 +232,7 @@ const ModernManageChildrenScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <TopBar
-        title="Manage Children"
+        title="Manage Profiles"
         showBack={true}
         onBackPress={() => navigation.goBack()}
         actions={[

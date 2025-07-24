@@ -18,6 +18,7 @@ import { firebaseService } from '../services/firebaseService';
 import { ChildResponse } from '../models/ChildProfile';
 import { DailyLog } from '../models';
 import { useAuth } from '../contexts/AuthContext';
+import { useChild } from '../contexts/ChildContext';
 import { Colors } from '../constants/Colors';
 import {
   TopBar,
@@ -63,40 +64,15 @@ export default function HomeScreen() {
   const dispatch = useAppDispatch();
   const navigation = useNavigation();
   const { isAuthenticated } = useAuth();
+  const { selectedChild, selectedChildId, children, loading: childrenLoading, setSelectedChildId } = useChild();
   const insets = useSafeAreaInsets();
   
-  // Local state for children and logs from Firebase
-  const [children, setChildren] = useState<ChildResponse[]>([]);
-  const [selectedChild, setSelectedChild] = useState<ChildResponse | null>(null);
+  // Local state for logs from Firebase
   const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
-  const [loading, setLoading] = useState(true);
   const [logsLoading, setLogsLoading] = useState(false);
   
   // Keep Redux state for weather only
   const { currentWeather } = useAppSelector((state) => state.environment);
-
-  // Load children from Firebase
-  const loadChildren = async () => {
-    try {
-      if (!isAuthenticated) {
-        console.log('User not authenticated, skipping children load');
-        return;
-      }
-      
-      console.log('Loading children from Firebase...');
-      const childrenData = await firebaseService.getUserChildren();
-      console.log('Loaded children for HomeScreen:', childrenData);
-      
-      setChildren(childrenData);
-      if (childrenData.length > 0 && !selectedChild) {
-        setSelectedChild(childrenData[0]);
-      }
-    } catch (error) {
-      console.error('Failed to load children in HomeScreen:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Load daily logs for selected child
   const loadDailyLogs = async (childId: string) => {
@@ -114,23 +90,12 @@ export default function HomeScreen() {
     }
   };
 
-  // Load children when screen focuses and user is authenticated
-  useFocusEffect(
-    useCallback(() => {
-      if (isAuthenticated) {
-        loadChildren();
-      } else {
-        setLoading(false);
-      }
-    }, [isAuthenticated])
-  );
-
   // Load logs when selected child changes
   useEffect(() => {
-    if (selectedChild && isAuthenticated) {
-      loadDailyLogs(selectedChild.child_id);
+    if (selectedChildId && isAuthenticated) {
+      loadDailyLogs(selectedChildId);
     }
-  }, [selectedChild, isAuthenticated]);
+  }, [selectedChildId, isAuthenticated]);
 
   useEffect(() => {
     // Load weather data
@@ -189,16 +154,8 @@ export default function HomeScreen() {
   };
 
   const handleLogSymptoms = () => {
-    if (selectedChild) {
-      (navigation as any).navigate('DailyLog', { childId: selectedChild.child_id });
-    } else {
-      Alert.alert('No Child Selected', 'Please select a child first.');
-    }
-  };
-
-  const handleTakePhoto = () => {
-    if (selectedChild) {
-      (navigation as any).navigate('ImageDiary', { childId: selectedChild.child_id });
+    if (selectedChildId) {
+      (navigation as any).navigate('DailyLog', { childId: selectedChildId });
     } else {
       Alert.alert('No Child Selected', 'Please select a child first.');
     }
@@ -239,9 +196,9 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Child Selection */}
+        {/* Profile Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Select Child</Text>
+          <Text style={styles.sectionLabel}>Select Profile</Text>
           
           <ScrollView 
             horizontal 
@@ -249,23 +206,23 @@ export default function HomeScreen() {
             style={styles.chipContainer}
             contentContainerStyle={styles.chipContent}
           >
-            {loading ? (
+            {childrenLoading ? (
               <Text style={styles.loadingText}>Loading...</Text>
             ) : children.length > 0 ? (
               children.map((child) => (
                 <Chip
                   key={child.child_id}
                   label={child.first_name}
-                  selected={selectedChild?.child_id === child.child_id}
-                  onPress={() => setSelectedChild(child)}
+                  selected={selectedChildId === child.child_id}
+                  onPress={() => setSelectedChildId(child.child_id)}
                   style={styles.chip}
                 />
               ))
             ) : (
               <View style={styles.noChildrenContainer}>
-                <Text style={styles.noChildrenText}>No children found</Text>
+                <Text style={styles.noChildrenText}>No profiles found</Text>
                 <ModernButton
-                  title="Add First Child"
+                  title="Add First Profile"
                   onPress={handleManageChildren}
                   variant="outline"
                   size="small"
@@ -277,7 +234,7 @@ export default function HomeScreen() {
           <Text style={styles.sectionInfo}>
             {selectedChild 
               ? `Viewing symptoms for ${selectedChild.first_name}`
-              : 'Choose the child to view their symptoms'
+              : 'Choose the profile to view their symptoms'
             }
           </Text>
         </View>
@@ -290,24 +247,17 @@ export default function HomeScreen() {
               title="Add Log"
               onPress={handleLogSymptoms}
               variant="primary"
-              disabled={!selectedChild}
-              style={styles.actionButton}
-            />
-            <ModernButton
-              title="Take Photo"
-              onPress={handleTakePhoto}
-              variant="secondary"
-              disabled={!selectedChild}
+              disabled={!selectedChildId}
               style={styles.actionButton}
             />
             <ModernButton
               title="View Report"
               onPress={handleViewReport}
-              variant="outline"
-              style={styles.actionButton}
+              variant="primary"
+              style={[styles.actionButton, styles.coralButton]}
             />
           </View>
-          {!selectedChild && (
+          {!selectedChildId && (
             <Text style={styles.actionHint}>Select a child above to enable logging actions</Text>
           )}
         </View>
@@ -582,5 +532,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     marginTop: 2, // Changed from -4 to 2 to move it down and add space
     marginLeft: 12, // Indent to align A with the y in Symply
+  },
+  coralButton: {
+    backgroundColor: Colors.secondary, // Coral color
   },
 });

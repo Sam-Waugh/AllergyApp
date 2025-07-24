@@ -57,77 +57,47 @@ export default function ModernSettingsScreen() {
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      '⚠️ Delete Account',
-      'Are you sure you want to delete your account?\n\nThis action will permanently remove ALL of your data including:\n• All children profiles\n• Daily logs and symptom tracking\n• Photos and attachments\n• App preferences and settings\n\nThis action cannot be undone.',
+      'Delete Entire Account',
+      '⚠️ WARNING: This will permanently delete your entire account and ALL children profiles, daily logs, photos, and data. This action cannot be undone.\n\nAre you absolutely sure you want to proceed?',
       [
-        { 
-          text: 'Cancel', 
-          style: 'cancel' 
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Yes, Delete My Account',
+          text: 'I understand, delete everything',
           style: 'destructive',
           onPress: () => {
-            // Second confirmation for extra safety
+            // Double confirmation for account deletion
             Alert.alert(
-              '🛑 Final Confirmation',
-              'This is your last chance to cancel.\n\nType "DELETE" in the confirmation that follows to permanently delete your entire account and ALL data.',
+              'Final Confirmation',
+              'This is your last chance to cancel. Are you absolutely certain you want to delete your entire account?',
               [
-                { 
-                  text: 'Cancel', 
-                  style: 'cancel' 
-                },
+                { text: 'Cancel', style: 'cancel' },
                 {
-                  text: 'I Understand, Proceed',
+                  text: 'Confirm Deletion',
                   style: 'destructive',
-                  onPress: () => {
-                    // Third and final confirmation
-                    Alert.prompt(
-                      '💀 DELETE ACCOUNT',
-                      'Type "DELETE" (in capital letters) to confirm account deletion:',
-                      [
-                        { 
-                          text: 'Cancel', 
-                          style: 'cancel' 
-                        },
-                        {
-                          text: 'Delete Account',
-                          style: 'destructive',
-                          onPress: async (text) => {
-                            if (text === 'DELETE') {
-                              try {
-                                await firebaseService.deleteCurrentUserAccount();
-                                await logout();
-                                Alert.alert(
-                                  'Account Deleted',
-                                  'Your account and all data have been permanently deleted.',
-                                  [
-                                    {
-                                      text: 'OK',
-                                      onPress: () => {
-                                        navigation.reset({
-                                          index: 0,
-                                          routes: [{ name: 'TabNavigator' }],
-                                        });
-                                      }
-                                    }
-                                  ]
-                                );
-                              } catch (error) {
-                                console.error('Error deleting account:', error);
-                                Alert.alert('Error', `Failed to delete account: ${error.message}`);
-                              }
-                            } else {
-                              Alert.alert(
-                                'Deletion Cancelled',
-                                'Account deletion was cancelled. You must type "DELETE" exactly to confirm.'
-                              );
+                  onPress: async () => {
+                    try {
+                      await firebaseService.deleteCurrentUserAccount();
+                      await logout(); // Log out the user
+                      Alert.alert(
+                        'Account Deleted',
+                        'Your account and all data have been permanently deleted.',
+                        [
+                          {
+                            text: 'OK',
+                            onPress: () => {
+                              // Navigate to home after logout
+                              navigation.reset({
+                                index: 0,
+                                routes: [{ name: 'TabNavigator' }],
+                              });
                             }
                           }
-                        }
-                      ],
-                      'plain-text'
-                    );
+                        ]
+                      );
+                    } catch (error) {
+                      console.error('Error deleting account:', error);
+                      Alert.alert('Error', `Failed to delete account: ${error.message}`);
+                    }
                   }
                 }
               ]

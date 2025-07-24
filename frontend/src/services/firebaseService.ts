@@ -1002,14 +1002,7 @@ class HIPAAFirebaseService {
    */
   private async getPhotosForDailyLog(logId: string, childId?: string): Promise<DailyLogPhotoEntry[]> {
     try {
-      console.log('=== GET PHOTOS FOR DAILY LOG DEBUG ===');
-      console.log('Looking for photos for log ID:', logId);
-      console.log('Child ID:', childId);
-      console.log('User ID:', this.userId);
-      console.log('Is test mode:', this.isTestMode);
-
       if (!this.userId) {
-        console.log('❌ User not authenticated');
         return [];
       }
 
@@ -1028,7 +1021,6 @@ class HIPAAFirebaseService {
         let photosQuery;
         
         if (childId) {
-          console.log('Querying photo_metadata collection with childId and logId');
           photosQuery = query(
             collection(firestore, 'photo_metadata'),
             where('child_id', '==', childId),
@@ -1036,23 +1028,16 @@ class HIPAAFirebaseService {
           );
         } else {
           // Fallback to just log_entry_id if childId not provided
-          console.log('Querying photo_metadata collection with logId only');
           photosQuery = query(
             collection(firestore, 'photo_metadata'),
             where('log_entry_id', '==', logId)
           );
         }
 
-        console.log('Executing Firestore query...');
         const photosSnapshot = await getDocs(photosQuery);
-        console.log('Query completed. Found', photosSnapshot.docs.length, 'photo documents');
         
         photosSnapshot.forEach((doc) => {
           const photoData = doc.data() as any; // Type assertion for Firestore data
-          
-          console.log('=== PROCESSING PHOTO DOCUMENT ===');
-          console.log('Document ID:', doc.id);
-          console.log('Photo data:', JSON.stringify(photoData, null, 2));
           
           // Convert photo metadata to DailyLogPhotoEntry format
           const photoEntry: DailyLogPhotoEntry = {
@@ -1069,12 +1054,11 @@ class HIPAAFirebaseService {
             createdAt: photoData.created_at || new Date().toISOString()
           };
           
-          console.log('Converted photo entry:', JSON.stringify(photoEntry, null, 2));
           photos.push(photoEntry);
         });
       }
 
-      console.log(`=== FINAL RESULT: Found ${photos.length} photos for daily log ${logId} ===`);
+      console.log(`Found ${photos.length} photos for daily log ${logId}`);
       return photos;
 
     } catch (error) {
@@ -1411,7 +1395,7 @@ class HIPAAFirebaseService {
       if (this.isTestMode) {
         // Use mock operations in test mode
         console.log('Test mode: Saving photo metadata to mock database');
-        await this.mockSetDoc(`photo_metadata/${photoId}`, photoEntry);
+        await this.mockSetDoc(`photos/${photoId}`, photoEntry);
         console.log('Test mode photo metadata saved:', photoId);
         
         // Return data in PhotoEntry format for consistency
@@ -1433,7 +1417,7 @@ class HIPAAFirebaseService {
       }
 
       // Save photo metadata to Firestore
-      const docRef = doc(firestore, 'photo_metadata', photoId);
+      const docRef = doc(firestore, 'photos', photoId);
       await setDoc(docRef, photoEntry);
 
       await this.logAccess('CREATE', 'photo_metadata', photoId);

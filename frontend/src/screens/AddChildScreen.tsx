@@ -1,7 +1,7 @@
 /**
- * Add Child Screen - HIPAA-compliant child profile creation
+ * Add Profile Screen - HIPAA-compliant profile creation
  * 
- * This screen provides a comprehensive form for creating child profiles
+ * This screen provides a comprehensive form for creating profiles
  * with medical information, emergency contacts, and HIPAA consent tracking.
  */
 
@@ -40,7 +40,7 @@ import {
 interface AddChildScreenProps {
   route?: {
     params?: {
-      onChildAdded?: () => void;
+      onProfileAdded?: () => void;
     };
   };
 }
@@ -187,7 +187,7 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
   };
 
   const handleSubmit = async () => {
-    console.log('Creating child profile...');
+    console.log('Creating profile...');
     
     if (!validateCurrentStep()) {
       Alert.alert('Validation Failed', 'Please check all required fields');
@@ -195,7 +195,7 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
     }
 
     if (!isAuthenticated) {
-      Alert.alert('Error', 'You must be logged in to create a child profile.');
+      Alert.alert('Error', 'You must be logged in to create a profile.');
       return;
     }
 
@@ -225,8 +225,8 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
       // Success handler function
       const handleSuccess = () => {
         console.log('Success handler called');
-        console.log('Calling onChildAdded callback...');
-        route?.params?.onChildAdded?.();
+        console.log('Calling onProfileAdded callback...');
+        route?.params?.onProfileAdded?.();
         console.log('Navigating back...');
         navigation.goBack();
       };
@@ -256,11 +256,11 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
       console.log('Alert handling completed');
 
     } catch (error) {
-      console.error('Failed to create child profile:', error);
+      console.error('Failed to create profile:', error);
       
       Alert.alert(
         'Error',
-        `Failed to create child profile: ${error.message || 'Unknown error'}. Please try again.`,
+        `Failed to create profile: ${error.message || 'Unknown error'}. Please try again.`,
         [{ text: 'OK' }]
       );
     } finally {
@@ -810,7 +810,7 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#007AFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Add Child</Text>
+        <Text style={styles.headerTitle}>Add Profile</Text>
         <View style={styles.headerRight}></View>
       </View>
 

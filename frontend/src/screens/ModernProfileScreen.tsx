@@ -45,8 +45,8 @@ export default function ModernProfileScreen() {
         setSelectedChildId(childrenData[0].child_id);
       }
     } catch (error) {
-      console.error('Error loading children:', error);
-      Alert.alert('Error', 'Failed to load child profiles');
+      console.error('Error loading profiles:', error);
+      Alert.alert('Error', 'Failed to load profiles');
     } finally {
       setLoading(false);
     }
@@ -55,16 +55,16 @@ export default function ModernProfileScreen() {
   const selectedChild = children.find(child => child.child_id === selectedChildId);
 
   const handleAddChild = () => {
-    navigation.navigate('AddChild', { onChildAdded: loadChildren });
+    navigation.navigate('AddChild', { onProfileAdded: loadChildren });
   };
 
   const handleManageChildren = () => {
     Alert.alert(
-      'Manage Children',
+      'Manage Profiles',
       'Choose an action:',
       [
         {
-          text: 'Add New Child',
+          text: 'Add New Profile',
           onPress: handleAddChild,
         },
         {
@@ -94,7 +94,7 @@ export default function ModernProfileScreen() {
         actions={[
           {
             icon: 'add',
-            label: 'Add Child',
+            label: 'Add Profile',
             onPress: handleAddChild,
           },
           {
@@ -124,7 +124,7 @@ export default function ModernProfileScreen() {
         {/* Children Selection */}
         {children.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Select Child</Text>
+            <Text style={styles.sectionTitle}>Select Profile</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.childrenChips}>
                 {children.map((child) => (
@@ -176,7 +176,7 @@ export default function ModernProfileScreen() {
                   style={styles.actionButton}
                 />
                 <ModernButton
-                  title="Manage Children"
+                  title="Manage Profiles"
                   variant="outline"
                   onPress={handleManageChildren}
                   style={styles.actionButton}
