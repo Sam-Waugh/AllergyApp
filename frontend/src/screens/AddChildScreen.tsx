@@ -28,13 +28,20 @@ import {
   CreateChildRequest,
   GenderType,
   AllergyInfo,
+  AllergyType,
   MedicationInfo,
   EmergencyContact,
   MedicalProvider,
   SeverityType,
   ValidationError,
+  FamilyMedicalHistoryInfo,
+  AllergicReactionEntry,
   COMMON_ALLERGENS,
-  COMMON_SYMPTOMS
+  COMMON_SYMPTOMS,
+  FAMILY_RELATIONS,
+  COMMON_HEREDITARY_CONDITIONS,
+  ALLERGIC_REACTION_SYMPTOMS,
+  ALLERGIC_REACTION_TREATMENTS
 } from '../models/ChildProfile';
 
 interface AddChildScreenProps {
@@ -65,6 +72,7 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
   const [allergies, setAllergies] = useState<AllergyInfo[]>([]);
   const [medications, setMedications] = useState<MedicationInfo[]>([]);
   const [medicalConditions, setMedicalConditions] = useState<string[]>([]);
+  const [familyMedicalHistory, setFamilyMedicalHistory] = useState<FamilyMedicalHistoryInfo[]>([]);
   const [medicalNotes, setMedicalNotes] = useState('');
 
   // Emergency Contacts
@@ -82,14 +90,20 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
   // Modal states
   const [showAllergyModal, setShowAllergyModal] = useState(false);
   const [showMedicationModal, setShowMedicationModal] = useState(false);
+  const [showFamilyMedicalHistoryModal, setShowFamilyMedicalHistoryModal] = useState(false);
   const [showHipaaModal, setShowHipaaModal] = useState(false);
 
   // Modal state for forms
   const [newAllergen, setNewAllergen] = useState('');
-  const [newSeverity, setNewSeverity] = useState<SeverityType>('mild');
+  const [newAllergyType, setNewAllergyType] = useState<AllergyType>('ige');
   const [newMedicationName, setNewMedicationName] = useState('');
   const [newMedicationDosage, setNewMedicationDosage] = useState('');
   const [newMedicationFrequency, setNewMedicationFrequency] = useState('');
+  const [newFamilyCondition, setNewFamilyCondition] = useState('');
+  const [newFamilyRelation, setNewFamilyRelation] = useState('mother');
+  const [newFamilyAgeOfOnset, setNewFamilyAgeOfOnset] = useState('');
+  const [newFamilyNotes, setNewFamilyNotes] = useState('');
+  const [newFamilyIsHereditary, setNewFamilyIsHereditary] = useState(true);
 
   // Validation
   const [errors, setErrors] = useState<ValidationError[]>([]);
@@ -202,6 +216,19 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
     setLoading(true);
 
     try {
+      // Clean family medical history entries to remove undefined values
+      const cleanFamilyMedicalHistory = familyMedicalHistory
+        .filter(h => h.condition.trim())
+        .map(history => {
+          const cleanEntry: any = {};
+          if (history.condition) cleanEntry.condition = history.condition;
+          if (history.relation) cleanEntry.relation = history.relation;
+          if (history.age_of_onset !== undefined) cleanEntry.age_of_onset = history.age_of_onset;
+          if (history.notes !== undefined) cleanEntry.notes = history.notes;
+          if (history.is_hereditary !== undefined) cleanEntry.is_hereditary = history.is_hereditary;
+          return cleanEntry as FamilyMedicalHistoryInfo;
+        });
+
       const childData: CreateChildRequest = {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
@@ -209,8 +236,10 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
         gender,
         known_allergies: allergies.filter(a => a.allergen.trim()),
         current_medications: medications.filter(m => m.name.trim()),
+        allergic_reactions: [], // Can be added later via EditChild screen
         medical_conditions: medicalConditions.filter(c => c.trim()),
         medical_notes: medicalNotes.trim() || undefined,
+        family_medical_history: cleanFamilyMedicalHistory.length > 0 ? cleanFamilyMedicalHistory : undefined,
         emergency_contacts: emergencyContacts.filter(c => c.name.trim()),
         primary_doctor: primaryDoctor
       };
@@ -268,10 +297,10 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
     }
   };
 
-  const addAllergy = (allergen: string, severity: SeverityType = 'mild') => {
+  const addAllergy = (allergen: string, allergyType: AllergyType = 'ige') => {
     const newAllergy: AllergyInfo = {
       allergen,
-      severity,
+      allergy_type: allergyType,
       reaction_type: [],
       verified_by_doctor: false
     };
@@ -291,6 +320,18 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
     setShowMedicationModal(false);
   };
 
+  const addFamilyMedicalHistory = (condition: string, relation: string, ageOfOnset?: number, notes?: string, isHereditary?: boolean) => {
+    const newFamilyHistory: FamilyMedicalHistoryInfo = {
+      condition,
+      relation,
+      age_of_onset: ageOfOnset,
+      notes,
+      is_hereditary: isHereditary
+    };
+    setFamilyMedicalHistory([...familyMedicalHistory, newFamilyHistory]);
+    setShowFamilyMedicalHistoryModal(false);
+  };
+
   const addEmergencyContact = () => {
     setEmergencyContacts([
       ...emergencyContacts,
@@ -304,7 +345,7 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
 
   const resetAllergyForm = () => {
     setNewAllergen('');
-    setNewSeverity('mild');
+    setNewAllergyType('ige');
   };
 
   const resetMedicationForm = () => {
@@ -313,10 +354,18 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
     setNewMedicationFrequency('');
   };
 
+  const resetFamilyMedicalHistoryForm = () => {
+    setNewFamilyCondition('');
+    setNewFamilyRelation('mother');
+    setNewFamilyAgeOfOnset('');
+    setNewFamilyNotes('');
+    setNewFamilyIsHereditary(true);
+  };
+
   const handleAddAllergy = () => {
-    console.log('handleAddAllergy called with:', newAllergen, newSeverity);
+    console.log('handleAddAllergy called with:', newAllergen, newAllergyType);
     if (newAllergen.trim()) {
-      addAllergy(newAllergen.trim(), newSeverity);
+      addAllergy(newAllergen.trim(), newAllergyType);
       resetAllergyForm();
     } else {
       Alert.alert('Error', 'Please enter an allergen name');
@@ -330,6 +379,23 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
       resetMedicationForm();
     } else {
       Alert.alert('Error', 'Please fill in all medication fields (name, dosage, and frequency)');
+    }
+  };
+
+  const handleAddFamilyMedicalHistory = () => {
+    console.log('handleAddFamilyMedicalHistory called with:', newFamilyCondition, newFamilyRelation);
+    if (newFamilyCondition.trim() && newFamilyRelation.trim()) {
+      const ageOfOnset = newFamilyAgeOfOnset ? parseInt(newFamilyAgeOfOnset) : undefined;
+      addFamilyMedicalHistory(
+        newFamilyCondition.trim(),
+        newFamilyRelation,
+        ageOfOnset,
+        newFamilyNotes.trim() || undefined,
+        newFamilyIsHereditary
+      );
+      resetFamilyMedicalHistoryForm();
+    } else {
+      Alert.alert('Error', 'Please enter a condition and select a family relation');
     }
   };
 
@@ -364,22 +430,22 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Severity</Text>
+            <Text style={styles.label}>Allergy Type</Text>
             <View style={styles.genderContainer}>
-              {(['mild', 'moderate', 'severe'] as SeverityType[]).map((severity) => (
+              {(['ige', 'non_ige'] as AllergyType[]).map((allergyType) => (
                 <TouchableOpacity
-                  key={severity}
+                  key={allergyType}
                   style={[
                     styles.genderOption,
-                    newSeverity === severity && styles.genderOptionSelected
+                    newAllergyType === allergyType && styles.genderOptionSelected
                   ]}
-                  onPress={() => setNewSeverity(severity)}
+                  onPress={() => setNewAllergyType(allergyType)}
                 >
                   <Text style={[
                     styles.genderOptionText,
-                    newSeverity === severity && styles.genderOptionTextSelected
+                    newAllergyType === allergyType && styles.genderOptionTextSelected
                   ]}>
-                    {severity.charAt(0).toUpperCase() + severity.slice(1)}
+                    {allergyType === 'ige' ? 'IgE-mediated (Immediate)' : 'Non-IgE (Delayed)'}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -453,6 +519,118 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
               onChangeText={setNewMedicationFrequency}
               placeholder="e.g., as needed, twice daily"
             />
+          </View>
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+
+  const renderFamilyMedicalHistoryModal = () => (
+    <Modal
+      visible={showFamilyMedicalHistoryModal}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={() => setShowFamilyMedicalHistoryModal(false)}
+    >
+      <View style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={() => setShowFamilyMedicalHistoryModal(false)}>
+            <Text style={styles.modalCancelText}>Cancel</Text>
+          </TouchableOpacity>
+          <Text style={styles.modalTitle}>Add Family Medical History</Text>
+          <TouchableOpacity onPress={handleAddFamilyMedicalHistory}>
+            <Text style={styles.modalSaveText}>Add</Text>
+          </TouchableOpacity>
+        </View>
+        
+        <ScrollView style={styles.modalContent}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Medical Condition *</Text>
+            <TextInput
+              style={styles.input}
+              value={newFamilyCondition}
+              onChangeText={setNewFamilyCondition}
+              placeholder="e.g., Allergies, Asthma, Diabetes"
+              autoFocus
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Family Relation *</Text>
+            <View style={styles.genderContainer}>
+              {FAMILY_RELATIONS.map((relation) => (
+                <TouchableOpacity
+                  key={relation}
+                  style={[
+                    styles.genderOption,
+                    newFamilyRelation === relation && styles.genderOptionSelected
+                  ]}
+                  onPress={() => setNewFamilyRelation(relation)}
+                >
+                  <Text style={[
+                    styles.genderOptionText,
+                    newFamilyRelation === relation && styles.genderOptionTextSelected
+                  ]}>
+                    {relation.charAt(0).toUpperCase() + relation.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Age of Onset (optional)</Text>
+            <TextInput
+              style={styles.input}
+              value={newFamilyAgeOfOnset}
+              onChangeText={setNewFamilyAgeOfOnset}
+              placeholder="e.g., 25"
+              keyboardType="numeric"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Additional Notes (optional)</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={newFamilyNotes}
+              onChangeText={setNewFamilyNotes}
+              placeholder="Any additional details..."
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <TouchableOpacity
+              style={[
+                styles.genderOption,
+                newFamilyIsHereditary && styles.genderOptionSelected
+              ]}
+              onPress={() => setNewFamilyIsHereditary(!newFamilyIsHereditary)}
+            >
+              <Text style={[
+                styles.genderOptionText,
+                newFamilyIsHereditary && styles.genderOptionTextSelected
+              ]}>
+                {newFamilyIsHereditary ? '✓ ' : ''}Hereditary condition
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Common Hereditary Conditions</Text>
+            <View style={styles.commonItemsContainer}>
+              {COMMON_HEREDITARY_CONDITIONS.map((condition) => (
+                <TouchableOpacity
+                  key={condition}
+                  style={styles.commonItemButton}
+                  onPress={() => setNewFamilyCondition(condition)}
+                >
+                  <Text style={styles.commonItemText}>{condition}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </ScrollView>
       </View>
@@ -599,7 +777,9 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
         <Text style={styles.sectionTitle}>Known Allergies</Text>
         {allergies.map((allergy, index) => (
           <View key={index} style={styles.listItem}>
-            <Text style={styles.listItemText}>{allergy.allergen} ({allergy.severity})</Text>
+            <Text style={styles.listItemText}>
+              {allergy.allergen} ({allergy.allergy_type === 'ige' ? 'IgE-mediated' : 'Non-IgE'})
+            </Text>
             <TouchableOpacity onPress={() => setAllergies(allergies.filter((_, i) => i !== index))}>
               <Ionicons name="close-circle" size={20} color="#ff4444" />
             </TouchableOpacity>
@@ -628,6 +808,35 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
         }}>
           <Ionicons name="add" size={20} color="#007AFF" />
           <Text style={styles.addButtonText}>Add Medication</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Family Medical History</Text>
+        {familyMedicalHistory.map((history, index) => (
+          <View key={index} style={styles.listItem}>
+            <View style={styles.familyHistoryItem}>
+              <Text style={styles.listItemText}>
+                {history.condition} ({history.relation})
+                {history.is_hereditary && <Text style={styles.hereditaryBadge}> • Hereditary</Text>}
+              </Text>
+              {history.age_of_onset && (
+                <Text style={styles.ageOfOnsetText}>Age of onset: {history.age_of_onset}</Text>
+              )}
+              {history.notes && (
+                <Text style={styles.notesText}>{history.notes}</Text>
+              )}
+            </View>
+            <TouchableOpacity onPress={() => setFamilyMedicalHistory(familyMedicalHistory.filter((_, i) => i !== index))}>
+              <Ionicons name="close-circle" size={20} color="#ff4444" />
+            </TouchableOpacity>
+          </View>
+        ))}
+        <TouchableOpacity style={styles.addButton} onPress={() => {
+          setShowFamilyMedicalHistoryModal(true);
+        }}>
+          <Ionicons name="add" size={20} color="#007AFF" />
+          <Text style={styles.addButtonText}>Add Family Medical History</Text>
         </TouchableOpacity>
       </View>
 
@@ -845,6 +1054,7 @@ export default function AddChildScreen({ route }: AddChildScreenProps) {
 
       {renderAllergyModal()}
       {renderMedicationModal()}
+      {renderFamilyMedicalHistoryModal()}
       {renderHipaaModal()}
     </KeyboardAvoidingView>
   );
@@ -1169,5 +1379,24 @@ const styles = StyleSheet.create({
   },
   hippaBold: {
     fontWeight: 'bold',
+  },
+  familyHistoryItem: {
+    flex: 1,
+  },
+  hereditaryBadge: {
+    fontSize: 12,
+    color: '#ff6b35',
+    fontWeight: '600',
+  },
+  ageOfOnsetText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  notesText: {
+    fontSize: 12,
+    color: '#888',
+    fontStyle: 'italic',
+    marginTop: 2,
   },
 });

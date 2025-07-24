@@ -466,9 +466,6 @@ Please share with your healthcare provider for comprehensive allergy management.
                 size="large" 
               />
               <View style={styles.patientHeaderDetails}>
-                <Text style={styles.patientHeaderName}>
-                  {selectedChild.first_name} {selectedChild.last_name}
-                </Text>
                 <Text style={styles.patientHeaderInfo}>
                   Age: {calculateAge(selectedChild.date_of_birth)} • {selectedChild.gender}
                 </Text>
@@ -935,7 +932,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   patientHeaderContent: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     marginBottom: 16,
   },

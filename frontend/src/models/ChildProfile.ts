@@ -7,6 +7,7 @@
 
 export type GenderType = 'male' | 'female' | 'other' | 'prefer_not_to_say';
 export type SeverityType = 'none' | 'mild' | 'moderate' | 'severe' | 'critical';
+export type AllergyType = 'ige' | 'non_ige';
 export type MoodType = 'excellent' | 'good' | 'fair' | 'poor' | 'very_poor';
 
 // Base interface for HIPAA compliance tracking
@@ -51,7 +52,7 @@ export interface MedicalProvider {
 // Allergy information
 export interface AllergyInfo {
   allergen: string;
-  severity: SeverityType;
+  allergy_type: AllergyType; // Changed from severity to allergy_type
   reaction_type: string[];
   first_occurrence?: string;
   last_occurrence?: string;
@@ -74,6 +75,31 @@ export interface MedicationInfo {
   active: boolean;
 }
 
+// Allergic reaction entry
+export interface AllergicReactionEntry {
+  reaction_id?: string;
+  date: string; // YYYY-MM-DD format
+  time?: string; // HH:MM format
+  allergen: string; // What caused the reaction
+  symptoms: string[]; // List of symptoms experienced
+  severity: SeverityType; // none, mild, moderate, severe, critical
+  treatment_given: string[]; // Medications/treatments administered
+  location?: string; // Where the reaction occurred
+  healthcare_provider?: string; // Doctor/hospital that treated
+  notes?: string;
+  resolved_date?: string; // When symptoms fully resolved
+  follow_up_required?: boolean;
+}
+
+// Family medical history information
+export interface FamilyMedicalHistoryInfo {
+  condition: string;
+  relation: string; // mother, father, maternal grandmother, etc.
+  age_of_onset?: number;
+  notes?: string;
+  is_hereditary?: boolean;
+}
+
 // Child profile interface
 export interface ChildProfile extends HIPAABaseModel {
   child_id: string;
@@ -86,7 +112,9 @@ export interface ChildProfile extends HIPAABaseModel {
   // Medical information
   known_allergies: AllergyInfo[];
   current_medications: MedicationInfo[];
+  allergic_reactions: AllergicReactionEntry[];
   medical_conditions: string[];
+  family_medical_history: FamilyMedicalHistoryInfo[];
   medical_notes?: string;
   
   // Contact information
@@ -228,8 +256,10 @@ export interface CreateChildRequest {
   // Optional medical information
   known_allergies?: AllergyInfo[];
   current_medications?: MedicationInfo[];
+  allergic_reactions?: AllergicReactionEntry[];
   medical_conditions?: string[];
   medical_notes?: string;
+  family_medical_history?: FamilyMedicalHistoryInfo[];
   
   // Contact information
   emergency_contacts?: EmergencyContact[];
@@ -245,8 +275,10 @@ export interface UpdateChildRequest {
   // Medical information
   allergies?: AllergyInfo[];
   medications?: MedicationInfo[];
+  allergic_reactions?: AllergicReactionEntry[];
   medical_history?: string;
   notes?: string;
+  family_medical_history?: FamilyMedicalHistoryInfo[];
   
   // Contact information
   emergency_contacts?: EmergencyContact[];
@@ -338,3 +370,101 @@ export const BODY_AREAS = [
 ] as const;
 
 export type BodyAreaType = typeof BODY_AREAS[number];
+
+// Family relations for medical history
+export const FAMILY_RELATIONS = [
+  'mother',
+  'father',
+  'maternal_grandmother',
+  'maternal_grandfather',
+  'paternal_grandmother',
+  'paternal_grandfather',
+  'maternal_aunt',
+  'maternal_uncle',
+  'paternal_aunt',
+  'paternal_uncle',
+  'sibling',
+  'cousin',
+  'other'
+] as const;
+
+export type FamilyRelationType = typeof FAMILY_RELATIONS[number];
+
+// Common hereditary medical conditions
+export const COMMON_HEREDITARY_CONDITIONS = [
+  'allergies',
+  'asthma',
+  'eczema',
+  'diabetes_type1',
+  'diabetes_type2',
+  'heart_disease',
+  'high_blood_pressure',
+  'high_cholesterol',
+  'cancer',
+  'depression',
+  'anxiety',
+  'autoimmune_disorders',
+  'thyroid_disorders',
+  'kidney_disease',
+  'celiac_disease',
+  'food_allergies',
+  'environmental_allergies',
+  'seasonal_allergies',
+  'migraine',
+  'obesity',
+  'other'
+] as const;
+
+export type HereditaryConditionType = typeof COMMON_HEREDITARY_CONDITIONS[number];
+
+// Common allergic reaction symptoms
+export const ALLERGIC_REACTION_SYMPTOMS = [
+  'hives',
+  'itching',
+  'rash',
+  'swelling_face',
+  'swelling_lips',
+  'swelling_tongue',
+  'swelling_throat',
+  'difficulty_breathing',
+  'wheezing',
+  'coughing',
+  'runny_nose',
+  'sneezing',
+  'watery_eyes',
+  'red_eyes',
+  'nausea',
+  'vomiting',
+  'diarrhea',
+  'stomach_cramps',
+  'dizziness',
+  'fainting',
+  'rapid_pulse',
+  'low_blood_pressure',
+  'anaphylaxis',
+  'loss_of_consciousness'
+] as const;
+
+export type AllergicReactionSymptomType = typeof ALLERGIC_REACTION_SYMPTOMS[number];
+
+// Common treatments for allergic reactions
+export const ALLERGIC_REACTION_TREATMENTS = [
+  'antihistamine_oral',
+  'antihistamine_topical',
+  'epinephrine_auto_injector',
+  'corticosteroid_oral',
+  'corticosteroid_topical',
+  'bronchodilator',
+  'cold_compress',
+  'cool_bath',
+  'moisturizer',
+  'avoid_trigger',
+  'emergency_room',
+  'call_911',
+  'inhaler',
+  'eye_drops',
+  'nasal_spray',
+  'no_treatment_needed'
+] as const;
+
+export type AllergicReactionTreatmentType = typeof ALLERGIC_REACTION_TREATMENTS[number];

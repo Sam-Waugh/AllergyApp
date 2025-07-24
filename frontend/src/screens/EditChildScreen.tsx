@@ -35,9 +35,16 @@ import {
   GenderType,
   AllergyInfo,
   MedicationInfo,
+  AllergyType,
+  FamilyMedicalHistoryInfo,
+  AllergicReactionEntry,
   SeverityType,
   COMMON_ALLERGENS,
-  COMMON_SYMPTOMS
+  COMMON_SYMPTOMS,
+  FAMILY_RELATIONS,
+  COMMON_HEREDITARY_CONDITIONS,
+  ALLERGIC_REACTION_SYMPTOMS,
+  ALLERGIC_REACTION_TREATMENTS
 } from '../models/ChildProfile';
 import {
   TopBar,
@@ -66,17 +73,41 @@ export default function EditChildScreen() {
   const [gender, setGender] = useState<GenderType>('other');
   const [allergies, setAllergies] = useState<AllergyInfo[]>([]);
   const [medications, setMedications] = useState<MedicationInfo[]>([]);
+  const [allergicReactions, setAllergicReactions] = useState<AllergicReactionEntry[]>([]);
+  const [familyMedicalHistory, setFamilyMedicalHistory] = useState<FamilyMedicalHistoryInfo[]>([]);
   const [medicalHistory, setMedicalHistory] = useState('');
   const [notes, setNotes] = useState('');
 
   // Modal states
   const [allergyModalVisible, setAllergyModalVisible] = useState(false);
   const [medicationModalVisible, setMedicationModalVisible] = useState(false);
+  const [allergicReactionModalVisible, setAllergicReactionModalVisible] = useState(false);
+  const [familyMedicalHistoryModalVisible, setFamilyMedicalHistoryModalVisible] = useState(false);
   const [newAllergyName, setNewAllergyName] = useState('');
-  const [newAllergySeverity, setNewAllergySeverity] = useState<SeverityType>('mild');
+  const [newAllergyType, setNewAllergyType] = useState<AllergyType>('ige');
   const [newMedicationName, setNewMedicationName] = useState('');
   const [newMedicationDosage, setNewMedicationDosage] = useState('');
   const [newMedicationFrequency, setNewMedicationFrequency] = useState('');
+  const [newReactionDate, setNewReactionDate] = useState('');
+  const [newReactionTime, setNewReactionTime] = useState('');
+  const [newReactionAllergen, setNewReactionAllergen] = useState('');
+  const [newReactionSymptoms, setNewReactionSymptoms] = useState<string[]>([]);
+  const [newReactionSeverity, setNewReactionSeverity] = useState<SeverityType>('mild');
+  const [newReactionTreatment, setNewReactionTreatment] = useState<string[]>([]);
+  const [newReactionLocation, setNewReactionLocation] = useState('');
+  const [newReactionProvider, setNewReactionProvider] = useState('');
+  const [newReactionNotes, setNewReactionNotes] = useState('');
+  const [newFamilyCondition, setNewFamilyCondition] = useState('');
+  const [newFamilyRelation, setNewFamilyRelation] = useState('');
+  const [newFamilyAgeOfOnset, setNewFamilyAgeOfOnset] = useState('');
+  const [newFamilyNotes, setNewFamilyNotes] = useState('');
+  const [newFamilyIsHereditary, setNewFamilyIsHereditary] = useState(false);
+
+  // Edit mode states
+  const [editingAllergyIndex, setEditingAllergyIndex] = useState<number | null>(null);
+  const [editingMedicationIndex, setEditingMedicationIndex] = useState<number | null>(null);
+  const [editingAllergicReactionIndex, setEditingAllergicReactionIndex] = useState<number | null>(null);
+  const [editingFamilyHistoryIndex, setEditingFamilyHistoryIndex] = useState<number | null>(null);
 
   // Load child data
   useEffect(() => {
@@ -107,6 +138,8 @@ export default function EditChildScreen() {
       setGender(childData.gender as GenderType);
       setAllergies(childData.known_allergies || []);
       setMedications(childData.current_medications || []);
+      setAllergicReactions(childData.allergic_reactions || []);
+      setFamilyMedicalHistory(childData.family_medical_history || []);
       setMedicalHistory(childData.medical_notes || '');
       setNotes(''); // Notes might be stored separately
     } catch (error) {
@@ -137,18 +170,52 @@ export default function EditChildScreen() {
     try {
       setSaving(true);
       
-      const updateData: UpdateChildRequest = {
+      // Clean family medical history entries to remove undefined values
+      const cleanFamilyMedicalHistory = familyMedicalHistory.map(history => {
+        const cleanEntry: any = {};
+        if (history.condition) cleanEntry.condition = history.condition;
+        if (history.relation) cleanEntry.relation = history.relation;
+        if (history.age_of_onset !== undefined) cleanEntry.age_of_onset = history.age_of_onset;
+        if (history.notes !== undefined) cleanEntry.notes = history.notes;
+        if (history.is_hereditary !== undefined) cleanEntry.is_hereditary = history.is_hereditary;
+        return cleanEntry as FamilyMedicalHistoryInfo;
+      });
+
+      // Clean allergic reactions entries to remove undefined values
+      const cleanAllergicReactions = allergicReactions.map(reaction => {
+        const cleanEntry: any = {};
+        if (reaction.date) cleanEntry.date = reaction.date;
+        if (reaction.time !== undefined) cleanEntry.time = reaction.time;
+        if (reaction.allergen) cleanEntry.allergen = reaction.allergen;
+        if (reaction.symptoms) cleanEntry.symptoms = reaction.symptoms;
+        if (reaction.severity) cleanEntry.severity = reaction.severity;
+        if (reaction.treatment_given) cleanEntry.treatment_given = reaction.treatment_given;
+        if (reaction.location !== undefined) cleanEntry.location = reaction.location;
+        if (reaction.healthcare_provider !== undefined) cleanEntry.healthcare_provider = reaction.healthcare_provider;
+        if (reaction.notes !== undefined) cleanEntry.notes = reaction.notes;
+        if (reaction.resolved_date !== undefined) cleanEntry.resolved_date = reaction.resolved_date;
+        if (reaction.follow_up_required !== undefined) cleanEntry.follow_up_required = reaction.follow_up_required;
+        return cleanEntry as AllergicReactionEntry;
+      });
+      
+      const updateData: Partial<ChildProfile> = {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         date_of_birth: dateOfBirth,
         gender: gender,
-        allergies: allergies,
-        medications: medications,
-        medical_history: medicalHistory.trim(),
-        notes: notes.trim(),
+        known_allergies: allergies,
+        current_medications: medications,
+        allergic_reactions: cleanAllergicReactions,
+        family_medical_history: cleanFamilyMedicalHistory,
+        medical_notes: medicalHistory.trim(),
       };
 
-      await firebaseService.updateChildProfile(childId, updateData);
+      // Remove undefined values to prevent Firebase errors
+      const cleanUpdateData = Object.fromEntries(
+        Object.entries(updateData).filter(([_, value]) => value !== undefined)
+      ) as Partial<ChildProfile>;
+
+      await firebaseService.updateChildProfile(childId, cleanUpdateData);
       
       Alert.alert('Success', 'Child profile updated successfully!', [
         {
@@ -170,17 +237,31 @@ export default function EditChildScreen() {
       return;
     }
 
-    const newAllergy: AllergyInfo = {
+    const allergyData: AllergyInfo = {
       allergen: newAllergyName.trim(),
-      severity: newAllergySeverity,
+      allergy_type: newAllergyType,
       reaction_type: [],
       notes: '',
       verified_by_doctor: false
     };
 
-    setAllergies([...allergies, newAllergy]);
+    if (editingAllergyIndex !== null) {
+      // Edit existing allergy
+      const updatedAllergies = [...allergies];
+      updatedAllergies[editingAllergyIndex] = {
+        ...updatedAllergies[editingAllergyIndex],
+        ...allergyData
+      };
+      setAllergies(updatedAllergies);
+    } else {
+      // Add new allergy
+      setAllergies([...allergies, allergyData]);
+    }
+
+    // Reset form
     setNewAllergyName('');
-    setNewAllergySeverity('mild');
+    setNewAllergyType('ige');
+    setEditingAllergyIndex(null);
     setAllergyModalVisible(false);
   };
 
@@ -195,7 +276,7 @@ export default function EditChildScreen() {
       return;
     }
 
-    const newMedication: MedicationInfo = {
+    const medicationData: MedicationInfo = {
       name: newMedicationName.trim(),
       dosage: newMedicationDosage.trim(),
       frequency: newMedicationFrequency.trim(),
@@ -205,16 +286,238 @@ export default function EditChildScreen() {
       notes: ''
     };
 
-    setMedications([...medications, newMedication]);
+    if (editingMedicationIndex !== null) {
+      // Edit existing medication
+      const updatedMedications = [...medications];
+      updatedMedications[editingMedicationIndex] = {
+        ...updatedMedications[editingMedicationIndex],
+        ...medicationData
+      };
+      setMedications(updatedMedications);
+    } else {
+      // Add new medication
+      setMedications([...medications, medicationData]);
+    }
+
+    // Reset form
     setNewMedicationName('');
     setNewMedicationDosage('');
     setNewMedicationFrequency('');
+    setEditingMedicationIndex(null);
     setMedicationModalVisible(false);
   };
 
   const handleRemoveMedication = (index: number) => {
     const updatedMedications = medications.filter((_, i) => i !== index);
     setMedications(updatedMedications);
+  };
+
+  const handleEditAllergy = (index: number) => {
+    const allergy = allergies[index];
+    setNewAllergyName(allergy.allergen);
+    setNewAllergyType(allergy.allergy_type);
+    setEditingAllergyIndex(index);
+    setAllergyModalVisible(true);
+  };
+
+  const handleEditMedication = (index: number) => {
+    const medication = medications[index];
+    setNewMedicationName(medication.name);
+    setNewMedicationDosage(medication.dosage);
+    setNewMedicationFrequency(medication.frequency);
+    setEditingMedicationIndex(index);
+    setMedicationModalVisible(true);
+  };
+
+  const handleAddNewAllergy = () => {
+    setNewAllergyName('');
+    setNewAllergyType('ige');
+    setEditingAllergyIndex(null);
+    setAllergyModalVisible(true);
+  };
+
+  const handleAddNewMedication = () => {
+    setNewMedicationName('');
+    setNewMedicationDosage('');
+    setNewMedicationFrequency('');
+    setEditingMedicationIndex(null);
+    setMedicationModalVisible(true);
+  };
+
+  const handleAddFamilyMedicalHistory = () => {
+    if (!newFamilyCondition.trim() || !newFamilyRelation.trim()) {
+      Alert.alert('Validation Error', 'Please enter a condition and select a family relation');
+      return;
+    }
+
+    const familyHistoryData: FamilyMedicalHistoryInfo = {
+      condition: newFamilyCondition.trim(),
+      relation: newFamilyRelation,
+      age_of_onset: newFamilyAgeOfOnset ? parseInt(newFamilyAgeOfOnset) : undefined,
+      notes: newFamilyNotes.trim() || undefined,
+      is_hereditary: newFamilyIsHereditary
+    };
+
+    if (editingFamilyHistoryIndex !== null) {
+      // Edit existing family history
+      const updatedFamilyHistory = [...familyMedicalHistory];
+      updatedFamilyHistory[editingFamilyHistoryIndex] = familyHistoryData;
+      setFamilyMedicalHistory(updatedFamilyHistory);
+    } else {
+      // Add new family history
+      setFamilyMedicalHistory([...familyMedicalHistory, familyHistoryData]);
+    }
+
+    // Reset form
+    setNewFamilyCondition('');
+    setNewFamilyRelation('');
+    setNewFamilyAgeOfOnset('');
+    setNewFamilyNotes('');
+    setNewFamilyIsHereditary(false);
+    setEditingFamilyHistoryIndex(null);
+    setFamilyMedicalHistoryModalVisible(false);
+  };
+
+  const handleRemoveFamilyMedicalHistory = (index: number) => {
+    const updatedFamilyHistory = familyMedicalHistory.filter((_, i) => i !== index);
+    setFamilyMedicalHistory(updatedFamilyHistory);
+  };
+
+  const handleEditFamilyMedicalHistory = (index: number) => {
+    const familyHistory = familyMedicalHistory[index];
+    setNewFamilyCondition(familyHistory.condition);
+    setNewFamilyRelation(familyHistory.relation);
+    setNewFamilyAgeOfOnset(familyHistory.age_of_onset?.toString() || '');
+    setNewFamilyNotes(familyHistory.notes || '');
+    setNewFamilyIsHereditary(familyHistory.is_hereditary);
+    setEditingFamilyHistoryIndex(index);
+    setFamilyMedicalHistoryModalVisible(true);
+  };
+
+  const handleAddNewFamilyMedicalHistory = () => {
+    setNewFamilyCondition('');
+    setNewFamilyRelation('');
+    setNewFamilyAgeOfOnset('');
+    setNewFamilyNotes('');
+    setNewFamilyIsHereditary(false);
+    setEditingFamilyHistoryIndex(null);
+    setFamilyMedicalHistoryModalVisible(true);
+  };
+
+  const handleAddAllergicReaction = () => {
+    if (!newReactionDate.trim() || !newReactionAllergen.trim()) {
+      Alert.alert('Validation Error', 'Please enter a date and allergen for the reaction');
+      return;
+    }
+
+    const reactionData: AllergicReactionEntry = {
+      date: newReactionDate.trim(),
+      time: newReactionTime.trim() || undefined,
+      allergen: newReactionAllergen.trim(),
+      symptoms: newReactionSymptoms,
+      severity: newReactionSeverity,
+      treatment_given: newReactionTreatment,
+      location: newReactionLocation.trim() || undefined,
+      healthcare_provider: newReactionProvider.trim() || undefined,
+      notes: newReactionNotes.trim() || undefined
+    };
+
+    if (editingAllergicReactionIndex !== null) {
+      // Edit existing reaction
+      const updatedReactions = [...allergicReactions];
+      updatedReactions[editingAllergicReactionIndex] = reactionData;
+      setAllergicReactions(updatedReactions);
+    } else {
+      // Add new reaction
+      setAllergicReactions([...allergicReactions, reactionData]);
+    }
+
+    // Reset form
+    setNewReactionDate('');
+    setNewReactionTime('');
+    setNewReactionAllergen('');
+    setNewReactionSymptoms([]);
+    setNewReactionSeverity('mild');
+    setNewReactionTreatment([]);
+    setNewReactionLocation('');
+    setNewReactionProvider('');
+    setNewReactionNotes('');
+    setEditingAllergicReactionIndex(null);
+    setAllergicReactionModalVisible(false);
+  };
+
+  const handleRemoveAllergicReaction = (index: number) => {
+    const updatedReactions = allergicReactions.filter((_, i) => i !== index);
+    setAllergicReactions(updatedReactions);
+  };
+
+  const handleEditAllergicReaction = (index: number) => {
+    const reaction = allergicReactions[index];
+    setNewReactionDate(reaction.date);
+    setNewReactionTime(reaction.time || '');
+    setNewReactionAllergen(reaction.allergen);
+    setNewReactionSymptoms(reaction.symptoms);
+    setNewReactionSeverity(reaction.severity);
+    setNewReactionTreatment(reaction.treatment_given);
+    setNewReactionLocation(reaction.location || '');
+    setNewReactionProvider(reaction.healthcare_provider || '');
+    setNewReactionNotes(reaction.notes || '');
+    setEditingAllergicReactionIndex(index);
+    setAllergicReactionModalVisible(true);
+  };
+
+  const handleAddNewAllergicReaction = () => {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    setNewReactionDate(today);
+    setNewReactionTime('');
+    setNewReactionAllergen('');
+    setNewReactionSymptoms([]);
+    setNewReactionSeverity('mild');
+    setNewReactionTreatment([]);
+    setNewReactionLocation('');
+    setNewReactionProvider('');
+    setNewReactionNotes('');
+    setEditingAllergicReactionIndex(null);
+    setAllergicReactionModalVisible(true);
+  };
+
+  const handleCancelAllergyModal = () => {
+    setNewAllergyName('');
+    setNewAllergyType('ige');
+    setEditingAllergyIndex(null);
+    setAllergyModalVisible(false);
+  };
+
+  const handleCancelMedicationModal = () => {
+    setNewMedicationName('');
+    setNewMedicationDosage('');
+    setNewMedicationFrequency('');
+    setEditingMedicationIndex(null);
+    setMedicationModalVisible(false);
+  };
+
+  const handleCancelFamilyMedicalHistoryModal = () => {
+    setNewFamilyCondition('');
+    setNewFamilyRelation('');
+    setNewFamilyAgeOfOnset('');
+    setNewFamilyNotes('');
+    setNewFamilyIsHereditary(false);
+    setEditingFamilyHistoryIndex(null);
+    setFamilyMedicalHistoryModalVisible(false);
+  };
+
+  const handleCancelAllergicReactionModal = () => {
+    setNewReactionDate('');
+    setNewReactionTime('');
+    setNewReactionAllergen('');
+    setNewReactionSymptoms([]);
+    setNewReactionSeverity('mild');
+    setNewReactionTreatment([]);
+    setNewReactionLocation('');
+    setNewReactionProvider('');
+    setNewReactionNotes('');
+    setEditingAllergicReactionIndex(null);
+    setAllergicReactionModalVisible(false);
   };
 
   const handleDeleteChild = () => {
@@ -387,7 +690,7 @@ export default function EditChildScreen() {
                 <Text style={styles.sectionTitle}>Allergies</Text>
                 <TouchableOpacity
                   style={styles.addButton}
-                  onPress={() => setAllergyModalVisible(true)}
+                  onPress={handleAddNewAllergy}
                 >
                   <Ionicons name="add" size={20} color="#1976D2" />
                 </TouchableOpacity>
@@ -401,15 +704,23 @@ export default function EditChildScreen() {
                     <View style={styles.listItemContent}>
                       <Text style={styles.listItemTitle}>{allergy.allergen}</Text>
                       <Text style={styles.listItemSubtitle}>
-                        Severity: {allergy.severity}
+                        Type: {allergy.allergy_type === 'ige' ? 'IgE-mediated (Immediate)' : 'Non-IgE (Delayed)'}
                       </Text>
                     </View>
-                    <TouchableOpacity
-                      style={styles.removeButton}
-                      onPress={() => handleRemoveAllergy(index)}
-                    >
-                      <Ionicons name="trash-outline" size={18} color="#F44336" />
-                    </TouchableOpacity>
+                    <View style={styles.listItemActions}>
+                      <TouchableOpacity
+                        style={styles.editButton}
+                        onPress={() => handleEditAllergy(index)}
+                      >
+                        <Ionicons name="pencil" size={18} color="#1976D2" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.removeButton}
+                        onPress={() => handleRemoveAllergy(index)}
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#F44336" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 ))
               )}
@@ -421,7 +732,7 @@ export default function EditChildScreen() {
                 <Text style={styles.sectionTitle}>Medications</Text>
                 <TouchableOpacity
                   style={styles.addButton}
-                  onPress={() => setMedicationModalVisible(true)}
+                  onPress={handleAddNewMedication}
                 >
                   <Ionicons name="add" size={20} color="#1976D2" />
                 </TouchableOpacity>
@@ -438,12 +749,121 @@ export default function EditChildScreen() {
                         {medication.dosage} - {medication.frequency}
                       </Text>
                     </View>
-                    <TouchableOpacity
-                      style={styles.removeButton}
-                      onPress={() => handleRemoveMedication(index)}
-                    >
-                      <Ionicons name="trash-outline" size={18} color="#F44336" />
-                    </TouchableOpacity>
+                    <View style={styles.listItemActions}>
+                      <TouchableOpacity
+                        style={styles.editButton}
+                        onPress={() => handleEditMedication(index)}
+                      >
+                        <Ionicons name="pencil" size={18} color="#1976D2" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.removeButton}
+                        onPress={() => handleRemoveMedication(index)}
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#F44336" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+
+            {/* Allergic Reactions Section */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Previous Allergic Reactions</Text>
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={handleAddNewAllergicReaction}
+                >
+                  <Ionicons name="add" size={20} color="#1976D2" />
+                </TouchableOpacity>
+              </View>
+              
+              {allergicReactions.length === 0 ? (
+                <Text style={styles.emptyText}>No allergic reactions recorded</Text>
+              ) : (
+                allergicReactions.map((reaction, index) => (
+                  <View key={index} style={styles.listItem}>
+                    <View style={styles.listItemContent}>
+                      <Text style={styles.listItemTitle}>
+                        {reaction.allergen} - {reaction.date}
+                      </Text>
+                      <Text style={styles.listItemSubtitle}>
+                        Severity: {reaction.severity.charAt(0).toUpperCase() + reaction.severity.slice(1)}
+                        {reaction.symptoms.length > 0 && ` • Symptoms: ${reaction.symptoms.slice(0, 2).join(', ')}${reaction.symptoms.length > 2 ? '...' : ''}`}
+                      </Text>
+                      {reaction.treatment_given.length > 0 && (
+                        <Text style={styles.notesText}>
+                          Treatment: {reaction.treatment_given.slice(0, 2).join(', ')}{reaction.treatment_given.length > 2 ? '...' : ''}
+                        </Text>
+                      )}
+                      {reaction.notes && (
+                        <Text style={styles.notesText}>{reaction.notes}</Text>
+                      )}
+                    </View>
+                    <View style={styles.listItemActions}>
+                      <TouchableOpacity
+                        style={styles.editButton}
+                        onPress={() => handleEditAllergicReaction(index)}
+                      >
+                        <Ionicons name="pencil" size={18} color="#1976D2" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.removeButton}
+                        onPress={() => handleRemoveAllergicReaction(index)}
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#F44336" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+
+            {/* Family Medical History Section */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Family Medical History</Text>
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={handleAddNewFamilyMedicalHistory}
+                >
+                  <Ionicons name="add" size={20} color="#1976D2" />
+                </TouchableOpacity>
+              </View>
+              
+              {familyMedicalHistory.length === 0 ? (
+                <Text style={styles.emptyText}>No family medical history added</Text>
+              ) : (
+                familyMedicalHistory.map((history, index) => (
+                  <View key={index} style={styles.listItem}>
+                    <View style={styles.listItemContent}>
+                      <Text style={styles.listItemTitle}>
+                        {history.condition} ({history.relation})
+                        {history.is_hereditary && <Text style={styles.hereditaryBadge}> • Hereditary</Text>}
+                      </Text>
+                      {history.age_of_onset && (
+                        <Text style={styles.ageOfOnsetText}>Age of onset: {history.age_of_onset}</Text>
+                      )}
+                      {history.notes && (
+                        <Text style={styles.notesText}>{history.notes}</Text>
+                      )}
+                    </View>
+                    <View style={styles.listItemActions}>
+                      <TouchableOpacity
+                        style={styles.editButton}
+                        onPress={() => handleEditFamilyMedicalHistory(index)}
+                      >
+                        <Ionicons name="pencil" size={18} color="#1976D2" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.removeButton}
+                        onPress={() => handleRemoveFamilyMedicalHistory(index)}
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#F44336" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 ))
               )}
@@ -518,22 +938,26 @@ export default function EditChildScreen() {
         visible={allergyModalVisible}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setAllergyModalVisible(false)}
+        onRequestClose={handleCancelAllergyModal}
       >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity
               style={styles.modalCloseButton}
-              onPress={() => setAllergyModalVisible(false)}
+              onPress={handleCancelAllergyModal}
             >
               <Text style={styles.modalCloseText}>Cancel</Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Add Allergy</Text>
+            <Text style={styles.modalTitle}>
+              {editingAllergyIndex !== null ? 'Edit Allergy' : 'Add Allergy'}
+            </Text>
             <TouchableOpacity
               style={styles.modalSaveButton}
               onPress={handleAddAllergy}
             >
-              <Text style={styles.modalSaveText}>Add</Text>
+              <Text style={styles.modalSaveText}>
+                {editingAllergyIndex !== null ? 'Save' : 'Add'}
+              </Text>
             </TouchableOpacity>
           </View>
           
@@ -550,22 +974,22 @@ export default function EditChildScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Severity</Text>
+              <Text style={styles.label}>Allergy Type</Text>
               <View style={styles.severityContainer}>
-                {['mild', 'moderate', 'severe'].map((severityOption) => (
+                {(['ige', 'non_ige'] as AllergyType[]).map((allergyTypeOption) => (
                   <TouchableOpacity
-                    key={severityOption}
+                    key={allergyTypeOption}
                     style={[
                       styles.severityOption,
-                      newAllergySeverity === severityOption && styles.severityOptionSelected
+                      newAllergyType === allergyTypeOption && styles.severityOptionSelected
                     ]}
-                    onPress={() => setNewAllergySeverity(severityOption as SeverityType)}
+                    onPress={() => setNewAllergyType(allergyTypeOption)}
                   >
                     <Text style={[
                       styles.severityText,
-                      newAllergySeverity === severityOption && styles.severityTextSelected
+                      newAllergyType === allergyTypeOption && styles.severityTextSelected
                     ]}>
-                      {severityOption.charAt(0).toUpperCase() + severityOption.slice(1)}
+                      {allergyTypeOption === 'ige' ? 'IgE-mediated (Immediate)' : 'Non-IgE (Delayed)'}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -580,22 +1004,26 @@ export default function EditChildScreen() {
         visible={medicationModalVisible}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setMedicationModalVisible(false)}
+        onRequestClose={handleCancelMedicationModal}
       >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity
               style={styles.modalCloseButton}
-              onPress={() => setMedicationModalVisible(false)}
+              onPress={handleCancelMedicationModal}
             >
               <Text style={styles.modalCloseText}>Cancel</Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Add Medication</Text>
+            <Text style={styles.modalTitle}>
+              {editingMedicationIndex !== null ? 'Edit Medication' : 'Add Medication'}
+            </Text>
             <TouchableOpacity
               style={styles.modalSaveButton}
               onPress={handleAddMedication}
             >
-              <Text style={styles.modalSaveText}>Add</Text>
+              <Text style={styles.modalSaveText}>
+                {editingMedicationIndex !== null ? 'Save' : 'Add'}
+              </Text>
             </TouchableOpacity>
           </View>
           
@@ -633,6 +1061,318 @@ export default function EditChildScreen() {
               />
             </View>
           </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Allergic Reaction Modal */}
+      <Modal
+        visible={allergicReactionModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={handleCancelAllergicReactionModal}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={handleCancelAllergicReactionModal}
+            >
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <Text style={styles.modalTitle}>
+              {editingAllergicReactionIndex !== null ? 'Edit Allergic Reaction' : 'Add Allergic Reaction'}
+            </Text>
+            
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={handleAddAllergicReaction}
+            >
+              <Text style={styles.modalSaveText}>
+                {editingAllergicReactionIndex !== null ? 'Update' : 'Add'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Date *</Text>
+              <TextInput
+                style={styles.input}
+                value={newReactionDate}
+                onChangeText={setNewReactionDate}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor="#999999"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Time (optional)</Text>
+              <TextInput
+                style={styles.input}
+                value={newReactionTime}
+                onChangeText={setNewReactionTime}
+                placeholder="HH:MM"
+                placeholderTextColor="#999999"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Allergen *</Text>
+              <TextInput
+                style={styles.input}
+                value={newReactionAllergen}
+                onChangeText={setNewReactionAllergen}
+                placeholder="What caused the reaction?"
+                placeholderTextColor="#999999"
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Severity</Text>
+              <View style={styles.optionsContainer}>
+                {(['none', 'mild', 'moderate', 'severe', 'critical'] as SeverityType[]).map((severity) => (
+                  <TouchableOpacity
+                    key={severity}
+                    style={[
+                      styles.option,
+                      newReactionSeverity === severity && styles.optionSelected
+                    ]}
+                    onPress={() => setNewReactionSeverity(severity)}
+                  >
+                    <Text style={[
+                      styles.optionText,
+                      newReactionSeverity === severity && styles.optionTextSelected
+                    ]}>
+                      {severity.charAt(0).toUpperCase() + severity.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Symptoms</Text>
+              <View style={styles.optionsContainer}>
+                {ALLERGIC_REACTION_SYMPTOMS.map((symptom) => (
+                  <TouchableOpacity
+                    key={symptom}
+                    style={[
+                      styles.commonItemButton,
+                      newReactionSymptoms.includes(symptom) && styles.optionSelected
+                    ]}
+                    onPress={() => {
+                      if (newReactionSymptoms.includes(symptom)) {
+                        setNewReactionSymptoms(newReactionSymptoms.filter(s => s !== symptom));
+                      } else {
+                        setNewReactionSymptoms([...newReactionSymptoms, symptom]);
+                      }
+                    }}
+                  >
+                    <Text style={[
+                      styles.commonItemText,
+                      newReactionSymptoms.includes(symptom) && styles.optionTextSelected
+                    ]}>
+                      {symptom.replace(/_/g, ' ')}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Treatment Given</Text>
+              <View style={styles.optionsContainer}>
+                {ALLERGIC_REACTION_TREATMENTS.map((treatment) => (
+                  <TouchableOpacity
+                    key={treatment}
+                    style={[
+                      styles.commonItemButton,
+                      newReactionTreatment.includes(treatment) && styles.optionSelected
+                    ]}
+                    onPress={() => {
+                      if (newReactionTreatment.includes(treatment)) {
+                        setNewReactionTreatment(newReactionTreatment.filter(t => t !== treatment));
+                      } else {
+                        setNewReactionTreatment([...newReactionTreatment, treatment]);
+                      }
+                    }}
+                  >
+                    <Text style={[
+                      styles.commonItemText,
+                      newReactionTreatment.includes(treatment) && styles.optionTextSelected
+                    ]}>
+                      {treatment.replace(/_/g, ' ')}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Location (optional)</Text>
+              <TextInput
+                style={styles.input}
+                value={newReactionLocation}
+                onChangeText={setNewReactionLocation}
+                placeholder="Where did the reaction occur?"
+                placeholderTextColor="#999999"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Healthcare Provider (optional)</Text>
+              <TextInput
+                style={styles.input}
+                value={newReactionProvider}
+                onChangeText={setNewReactionProvider}
+                placeholder="Doctor or hospital that treated"
+                placeholderTextColor="#999999"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Additional Notes (optional)</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={newReactionNotes}
+                onChangeText={setNewReactionNotes}
+                placeholder="Any additional details about the reaction..."
+                placeholderTextColor="#999999"
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Family Medical History Modal */}
+      <Modal
+        visible={familyMedicalHistoryModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={handleCancelFamilyMedicalHistoryModal}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={handleCancelFamilyMedicalHistoryModal}
+            >
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <Text style={styles.modalTitle}>
+              {editingFamilyHistoryIndex !== null ? 'Edit Family Medical History' : 'Add Family Medical History'}
+            </Text>
+            
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={handleAddFamilyMedicalHistory}
+            >
+              <Text style={styles.modalSaveText}>
+                {editingFamilyHistoryIndex !== null ? 'Update' : 'Add'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Medical Condition *</Text>
+              <TextInput
+                style={styles.input}
+                value={newFamilyCondition}
+                onChangeText={setNewFamilyCondition}
+                placeholder="e.g., Allergies, Asthma, Diabetes"
+                placeholderTextColor="#999999"
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Family Relation *</Text>
+              <View style={styles.optionsContainer}>
+                {FAMILY_RELATIONS.map((relation) => (
+                  <TouchableOpacity
+                    key={relation}
+                    style={[
+                      styles.option,
+                      newFamilyRelation === relation && styles.optionSelected
+                    ]}
+                    onPress={() => setNewFamilyRelation(relation)}
+                  >
+                    <Text style={[
+                      styles.optionText,
+                      newFamilyRelation === relation && styles.optionTextSelected
+                    ]}>
+                      {relation.charAt(0).toUpperCase() + relation.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Age of Onset (optional)</Text>
+              <TextInput
+                style={styles.input}
+                value={newFamilyAgeOfOnset}
+                onChangeText={setNewFamilyAgeOfOnset}
+                placeholder="e.g., 25"
+                placeholderTextColor="#999999"
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Additional Notes (optional)</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={newFamilyNotes}
+                onChangeText={setNewFamilyNotes}
+                placeholder="Any additional details..."
+                placeholderTextColor="#999999"
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <TouchableOpacity
+                style={[
+                  styles.option,
+                  newFamilyIsHereditary && styles.optionSelected
+                ]}
+                onPress={() => setNewFamilyIsHereditary(!newFamilyIsHereditary)}
+              >
+                <Text style={[
+                  styles.optionText,
+                  newFamilyIsHereditary && styles.optionTextSelected
+                ]}>
+                  {newFamilyIsHereditary ? '✓ ' : ''}Hereditary condition
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Common Hereditary Conditions</Text>
+              <View style={styles.optionsContainer}>
+                {COMMON_HEREDITARY_CONDITIONS.map((condition) => (
+                  <TouchableOpacity
+                    key={condition}
+                    style={styles.commonItemButton}
+                    onPress={() => setNewFamilyCondition(condition)}
+                  >
+                    <Text style={styles.commonItemText}>{condition}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </ScrollView>
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
@@ -796,6 +1536,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 12,
   },
+  listItemActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  editButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E3F2FD',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
   buttonContainer: {
     marginTop: 24,
     marginBottom: 32,
@@ -900,5 +1653,68 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 8,
     lineHeight: 16,
+  },
+  hereditaryBadge: {
+    fontSize: 12,
+    color: '#ff6b35',
+    fontWeight: '600',
+  },
+  ageOfOnsetText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  notesText: {
+    fontSize: 12,
+    color: '#888',
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+  modalButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  modalCancelText: {
+    fontSize: 16,
+    color: '#FF3B30',
+    fontWeight: '500',
+  },
+  optionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  option: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  optionSelected: {
+    backgroundColor: '#E3F2FD',
+    borderColor: '#2196F3',
+  },
+  optionText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  optionTextSelected: {
+    color: '#2196F3',
+    fontWeight: '500',
+  },
+  commonItemButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#e3f2fd',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#2196F3',
+  },
+  commonItemText: {
+    fontSize: 14,
+    color: '#2196F3',
   },
 });
