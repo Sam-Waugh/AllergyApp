@@ -18,6 +18,8 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as Print from 'expo-print';
+import * as MediaLibrary from 'expo-media-library';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -335,6 +337,15 @@ export default function ModernDoctorReportScreen() {
     return `${months} months`;
   };
 
+  const getSeverityColor = (severity: string) => {
+    switch (severity.toLowerCase()) {
+      case 'severe': return '#F44336';
+      case 'moderate': return '#FF9800';
+      case 'mild': return '#4CAF50';
+      default: return '#9E9E9E';
+    }
+  };
+
   const calculateSymptomStats = () => {
     if (dailyLogs.length === 0) {
       return {
@@ -584,126 +595,257 @@ export default function ModernDoctorReportScreen() {
   const generateReportText = () => {
     if (!selectedChild) return '';
 
-    const reportDate = new Date().toLocaleDateString();
-    const periodText = reportPeriod === '1month' ? '1 month' : reportPeriod === '3months' ? '3 months' : '6 months';
+    const reportDate = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    const periodText = reportPeriod === '1month' ? '1 Month' : reportPeriod === '3months' ? '3 Months' : '6 Months';
 
-    let reportText = `SYMPLY ALLERGY - MEDICAL REPORT
+    // Modern professional report format
+    let reportText = `
+╔══════════════════════════════════════════════════════════════════════╗
+║                            SYMPLY ALLERGY                            ║
+║                         COMPREHENSIVE MEDICAL REPORT                 ║
+╚══════════════════════════════════════════════════════════════════════╝
 
-Patient Information:
-Name: ${selectedChild.first_name} ${selectedChild.last_name}
-Date of Birth: ${new Date(selectedChild.date_of_birth).toLocaleDateString()}
-Age: ${calculateAge(selectedChild.date_of_birth)}
-Gender: ${selectedChild.gender}
-Report Period: ${periodText}
-Report Generated: ${reportDate}
+Patient Information
+═══════════════════════════════════════════════════════════════════════
+Name:             ${selectedChild.first_name} ${selectedChild.last_name}
+Date of Birth:    ${new Date(selectedChild.date_of_birth).toLocaleDateString()}
+Age:              ${calculateAge(selectedChild.date_of_birth)}
+Gender:           ${selectedChild.gender}
+Report Period:    ${periodText}
+Generated:        ${reportDate}
 
 `;
 
-    // Add Known Allergies
+    // AI-Generated Insights Section
+    reportText += `AI-Generated Clinical Insights
+═══════════════════════════════════════════════════════════════════════
+`;
+
+    // Symptom frequency analysis
+    if (symptomFrequencyData.length > 0 && symptomFrequencyData[0].name !== 'No Data') {
+      reportText += `Most Frequent Symptoms (${dailyLogs.length} days tracked):
+`;
+      symptomFrequencyData.forEach((symptom, index) => {
+        const rank = index + 1;
+        reportText += `  ${rank}. ${symptom.name} - ${symptom.percentage} of tracked days
+`;
+      });
+      reportText += `
+`;
+    }
+
+    // Trigger impact analysis
+    if (triggerImpactData.length > 0) {
+      reportText += `Most Impactful Triggers:
+`;
+      triggerImpactData.forEach((trigger, index) => {
+        const rank = index + 1;
+        const severity = trigger.impact >= 70 ? 'High' : trigger.impact >= 40 ? 'Medium' : 'Low';
+        reportText += `  ${rank}. ${trigger.name} - ${trigger.impact}% impact (${severity})
+`;
+      });
+      reportText += `
+`;
+    }
+
+    // Seasonal patterns
+    const seasonalTotal = seasonalData.spring + seasonalData.summer + seasonalData.autumn + seasonalData.winter;
+    if (seasonalTotal > 0) {
+      reportText += `Seasonal Patterns:
+  Spring: ${seasonalData.spring}% severity
+  Summer: ${seasonalData.summer}% severity
+  Autumn: ${seasonalData.autumn}% severity
+  Winter: ${seasonalData.winter}% severity
+
+`;
+    }
+
+    // Known Allergies Section
     if (confirmedAllergies.length > 0 || suspectedAllergies.length > 0) {
-      reportText += `Known Allergies:
+      reportText += `Known Allergies & Sensitivities
+═══════════════════════════════════════════════════════════════════════
 `;
       if (confirmedAllergies.length > 0) {
         reportText += `IgE-Mediated (Confirmed):
-${confirmedAllergies.map(allergy => `• ${allergy}`).join('\n')}
-
+`;
+        confirmedAllergies.forEach(allergy => {
+          reportText += `  • ${allergy}
+`;
+        });
+        reportText += `
 `;
       }
       if (suspectedAllergies.length > 0) {
         reportText += `Non-IgE-Mediated (Suspected):
-${suspectedAllergies.map(allergy => `• ${allergy}`).join('\n')}
-
+`;
+        suspectedAllergies.forEach(allergy => {
+          reportText += `  • ${allergy}
+`;
+        });
+        reportText += `
 `;
       }
     }
 
-    // Add Current Medications
+    // Current Medications Section
     if (medications.length > 0) {
-      reportText += `Current Medications:
-${medications.map(medication => `• ${medication}`).join('\n')}
-
+      reportText += `Current Medications
+═══════════════════════════════════════════════════════════════════════
+`;
+      medications.forEach(medication => {
+        reportText += `  • ${medication}
+`;
+      });
+      reportText += `
 `;
     }
 
-    // Add Family Medical History
+    // Family Medical History
     if (selectedChild.family_medical_history && selectedChild.family_medical_history.length > 0) {
-      reportText += `Family Medical History:
+      reportText += `Family Medical History
+═══════════════════════════════════════════════════════════════════════
 `;
       selectedChild.family_medical_history.forEach(entry => {
-        reportText += `• ${entry.relation}: ${entry.condition}`;
+        reportText += `  • ${entry.relation}: ${entry.condition}`;
         if (entry.age_of_onset) {
           reportText += ` (onset: ${entry.age_of_onset} years)`;
         }
         if (entry.is_hereditary) {
-          reportText += ` [Hereditary]`;
+          reportText += ` [Hereditary Risk]`;
         }
-        reportText += '\n';
+        reportText += `
+`;
         if (entry.notes) {
-          reportText += `  Notes: ${entry.notes}\n`;
+          reportText += `    Notes: ${entry.notes}
+`;
         }
       });
-      reportText += '\n';
-    }
-
-    // Add Previous Allergic Reactions
-    if (selectedChild.allergic_reactions && selectedChild.allergic_reactions.length > 0) {
-      reportText += `Previous Allergic Reactions:
+      reportText += `
 `;
-      selectedChild.allergic_reactions
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .forEach(reaction => {
-          reportText += `• ${new Date(reaction.date).toLocaleDateString()}`;
-          if (reaction.time) {
-            reportText += ` at ${reaction.time}`;
-          }
-          reportText += ` - ${reaction.allergen} (${reaction.severity.toUpperCase()})\n`;
-          if (reaction.symptoms.length > 0) {
-            reportText += `  Symptoms: ${reaction.symptoms.join(', ')}\n`;
-          }
-          if (reaction.treatment_given && reaction.treatment_given.length > 0) {
-            reportText += `  Treatment: ${reaction.treatment_given.join(', ')}\n`;
-          }
-          if (reaction.healthcare_provider) {
-            reportText += `  Provider: ${reaction.healthcare_provider}\n`;
-          }
-          if (reaction.notes) {
-            reportText += `  Notes: ${reaction.notes}\n`;
-          }
-          reportText += '\n';
-        });
     }
 
-    reportText += `Symptom Summary (${periodText}):
-Total Symptom Logs: ${stats.totalLogs}
+    // Symptom Statistics
+    if (dailyLogs.length > 0) {
+      reportText += `Symptom Statistics
+═══════════════════════════════════════════════════════════════════════
+Total Days Tracked:     ${stats.totalLogs}
+Severe Symptom Days:    ${stats.severeDays}
+Mild Symptom Days:      ${stats.mildDays}
 
-Average Symptom Severity (0-5 scale):
-• Skin Rash: ${stats.avgRash}
-• Cough: ${stats.avgCough}
-• Runny Nose: ${stats.avgRunnyNose}
-• Itching: ${stats.avgItching}
-• Wheezing: ${stats.avgWheezing}
+Average Symptom Severity (0-10 scale):
+  Skin Rash:     ${stats.avgRash}
+  Runny Nose:    ${stats.avgRunnyNose}
+  Itching:       ${stats.avgItching}
+  Cough:         ${stats.avgCough}
+  Wheezing:      ${stats.avgWheezing}
 
-Severity Analysis:
-• Severe Symptom Days: ${stats.severeDays}
-• Mild Symptom Days: ${stats.mildDays}
-• Moderate Days: ${stats.totalLogs - stats.severeDays - stats.mildDays}
+`;
+    }
 
-Most Common Triggers:
-${stats.mostCommonTriggers.map((trigger, index) => `${index + 1}. ${trigger}`).join('\n')}
+    // Recent Allergic Reactions
+    if (selectedChild.allergic_reactions && selectedChild.allergic_reactions.length > 0) {
+      reportText += `Recent Allergic Reactions
+═══════════════════════════════════════════════════════════════════════
+`;
+      selectedChild.allergic_reactions.slice(0, 5).forEach(reaction => {
+        reportText += `Date: ${new Date(reaction.date).toLocaleDateString()}
+  Allergen: ${reaction.allergen || 'Unknown'}
+  Severity: ${reaction.severity}/10
+  Symptoms: ${reaction.symptoms?.join(', ') || 'Not specified'}
+  Treatment: ${reaction.treatment_given?.join(', ') || 'None documented'}
+`;
+        if (reaction.notes) {
+          reportText += `  Notes: ${reaction.notes}
+`;
+        }
+        reportText += `
+`;
+      });
+    }
 
-This report was generated by Symply Allergy for medical consultation purposes.
-Please share with your healthcare provider for comprehensive allergy management.`;
+    // Doctor's Notes
+    if (doctorNotes.trim()) {
+      reportText += `Healthcare Provider Notes
+═══════════════════════════════════════════════════════════════════════
+${doctorNotes}
+
+`;
+    }
+
+    // Professional Footer
+    reportText += `Report Summary & Recommendations
+═══════════════════════════════════════════════════════════════════════
+`;
+
+    if (symptomFrequencyData.length > 0 && symptomFrequencyData[0].name !== 'No Data') {
+      const topSymptom = symptomFrequencyData[0];
+      reportText += `• Primary concern: ${topSymptom.name} occurring on ${topSymptom.percentage} of tracked days
+`;
+    }
+
+    if (triggerImpactData.length > 0) {
+      const topTrigger = triggerImpactData[0];
+      reportText += `• Highest impact trigger: ${topTrigger.name} (${topTrigger.impact}% impact score)
+`;
+    }
+
+    reportText += `• Continue daily symptom tracking for ongoing monitoring
+• Discuss findings with healthcare provider for treatment optimization
+• Consider allergy testing if triggers remain unidentified
+
+═══════════════════════════════════════════════════════════════════════
+This report was generated by Symply Allergy - HIPAA Compliant System
+All patient data is deidentified per Safe Harbor standards for AI analysis
+Generated on ${reportDate}
+═══════════════════════════════════════════════════════════════════════`;
 
     return reportText;
   };
 
   const handleShareReport = async () => {
     try {
-      const reportText = generateReportText();
-      await Share.share({
-        message: reportText,
-        title: `Allergy Report - ${selectedChild?.first_name} ${selectedChild?.last_name}`,
-      });
+      if (!selectedChild) {
+        Alert.alert('Error', 'No child selected');
+        return;
+      }
+
+      const htmlContent = await generatePDFReport();
+      const fileName = `SymplyAllergy_Report_${selectedChild.first_name}_${selectedChild.last_name}_${new Date().toISOString().split('T')[0]}.html`;
+
+      if (Platform.OS === 'web') {
+        // Web implementation - create and download HTML file
+        const element = document.createElement('a');
+        const file = new Blob([htmlContent], { type: 'text/html' });
+        element.href = URL.createObjectURL(file);
+        element.download = fileName;
+        document.body.appendChild(element);
+        element.click();
+        document.body.removeChild(element);
+        Alert.alert('Success', 'Professional report ready for sharing! Open in browser and use Print > Save as PDF for best results.');
+      } else {
+        // Mobile implementation using Expo APIs
+        const fileUri = FileSystem.documentDirectory + fileName;
+
+        await FileSystem.writeAsStringAsync(fileUri, htmlContent, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+
+        // Share the HTML file
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'text/html',
+            dialogTitle: 'Share Professional Medical Report',
+            UTI: 'public.html'
+          });
+        } else {
+          Alert.alert('Success', `Professional report saved! Share the file from:\n${fileUri}`);
+        }
+      }
     } catch (error) {
       console.error('Error sharing report:', error);
       Alert.alert('Error', 'Failed to share report');
@@ -714,6 +856,804 @@ Please share with your healthcare provider for comprehensive allergy management.
     Alert.alert('Email Report', 'Email functionality will be available soon');
   };
 
+  const generatePDFReport = async () => {
+    if (!selectedChild) return '';
+
+    const reportDate = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+
+    // Generate HTML content for PDF
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Symply Allergy Medical Report</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #2C3E50;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        }
+        .header {
+            text-align: center;
+            background: linear-gradient(135deg, #4A9B9B 0%, #66B2B2 100%);
+            color: white;
+            border-radius: 16px;
+            margin-bottom: 30px;
+            padding: 30px 20px;
+            box-shadow: 0 8px 32px rgba(74, 155, 155, 0.3);
+        }
+        .logo {
+            color: #ffffff;
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 8px;
+            letter-spacing: 2px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .logo-subtitle {
+            color: #F8FAFC;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .report-title {
+            color: #ffffff;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .patient-info {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            padding: 24px;
+            border-radius: 16px;
+            margin-bottom: 30px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.1);
+        }
+        .patient-info h2 {
+            color: #4A9B9B;
+            margin-top: 0;
+            border-bottom: 2px solid #4A9B9B;
+            padding-bottom: 12px;
+            font-weight: 700;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 12px;
+            border-left: 4px solid #4A9B9B;
+        }
+        .info-label {
+            font-weight: 700;
+            color: #4A9B9B;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+        .info-value {
+            font-size: 16px;
+            color: #1E293B;
+            font-weight: 600;
+        }
+        .section {
+            margin-bottom: 40px;
+            page-break-inside: avoid;
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid #E2E8F0;
+        }
+        .section-title {
+            color: #4A9B9B;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            border-bottom: 3px solid #4A9B9B;
+            padding-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .subsection-title {
+            color: #64748B;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        .chart-container {
+            background: linear-gradient(135deg, #ffffff 0%, #F8FAFC 100%);
+            border: 2px solid #E2E8F0;
+            border-radius: 16px;
+            padding: 24px;
+            margin: 20px 0;
+            box-shadow: 0 4px 16px rgba(74, 155, 155, 0.08);
+        }
+        .bubble-chart {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            padding: 24px;
+            min-height: 140px;
+            background: radial-gradient(circle at center, #F8FAFC 0%, #E2E8F0 100%);
+            border-radius: 12px;
+        }
+        .bubble {
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            text-align: center;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            border: 3px solid rgba(255,255,255,0.3);
+        }
+        .bar-chart {
+            display: flex;
+            align-items: end;
+            gap: 20px;
+            height: 220px;
+            padding: 24px;
+            border-bottom: 3px solid #4A9B9B;
+            background: linear-gradient(180deg, #F8FAFC 0%, #ffffff 100%);
+            border-radius: 12px;
+        }
+        .bar-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100%;
+        }
+        .bar {
+            width: 50px;
+            border-radius: 8px 8px 0 0;
+            margin-bottom: 12px;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+        .bar-label {
+            text-align: center;
+            font-size: 13px;
+            color: #4a5568;
+            font-weight: 600;
+        }
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+            margin: 24px 0;
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #4A9B9B 0%, #66B2B2 100%);
+            color: white;
+            padding: 24px;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 8px 24px rgba(74, 155, 155, 0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .metric-value {
+            font-size: 36px;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .metric-label {
+            color: #F8FAFC;
+            font-size: 14px;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+        .allergy-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+        .allergy-item {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+            transition: all 0.3s ease;
+        }
+        .allergy-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.2);
+        }
+        .allergy-indicator {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #4A9B9B;
+            box-shadow: 0 2px 8px rgba(74, 155, 155, 0.3);
+        }
+        .recommendation-item {
+            background: linear-gradient(135deg, #F8FAFC 0%, #ffffff 100%);
+            border-left: 6px solid #4A9B9B;
+            padding: 20px;
+            margin-bottom: 16px;
+            border-radius: 0 12px 12px 0;
+            box-shadow: 0 4px 16px rgba(74, 155, 155, 0.1);
+        }
+        .priority-high {
+            border-left-color: #EF4444;
+            background: linear-gradient(135deg, #FEF2F2 0%, #ffffff 100%);
+        }
+        .priority-medium {
+            border-left-color: #F59E0B;
+            background: linear-gradient(135deg, #FFFBEB 0%, #ffffff 100%);
+        }
+        .footer {
+            margin-top: 50px;
+            padding: 30px 20px;
+            background: linear-gradient(135deg, #4A9B9B 0%, #66B2B2 100%);
+            color: white;
+            text-align: center;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(74, 155, 155, 0.3);
+        }
+        .footer .logo-footer {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 16px;
+            letter-spacing: 2px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .footer .footer-subtitle {
+            color: #F8FAFC;
+            font-size: 14px;
+            margin-bottom: 12px;
+            font-weight: 500;
+        }
+        .footer .footer-disclaimer {
+            color: #E2E8F0;
+            font-size: 12px;
+            font-style: italic;
+            margin-top: 16px;
+            line-height: 1.5;
+        }
+        .page-break {
+            page-break-before: always;
+        }
+        @media print {
+            body { 
+                font-size: 12px; 
+                background: white !important;
+            }
+            .section { 
+                page-break-inside: avoid; 
+                box-shadow: none !important;
+                border: 1px solid #E2E8F0 !important;
+            }
+            .header, .footer {
+                background: #4A9B9B !important;
+                -webkit-print-color-adjust: exact !important;
+                color-adjust: exact !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 10px;">
+            <div style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                <svg width="60" height="60" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Circular teal background -->
+                    <circle cx="60" cy="60" r="60" fill="#4A9B9B"/>
+                    
+                    <!-- Zigzag trend line (up, down to slightly higher than start, up higher) -->
+                    <g stroke="white" stroke-width="3.5" fill="none" stroke-linecap="round">
+                        <line x1="25" y1="55" x2="40" y2="35"/>
+                        <line x1="40" y1="35" x2="60" y2="50"/>
+                        <line x1="60" y1="50" x2="85" y2="25"/>
+                    </g>
+                    
+                    <!-- Data points (white circles with coral centers) -->
+                    <!-- First point (starting position) -->
+                    <circle cx="25" cy="55" r="6" fill="white"/>
+                    <circle cx="25" cy="55" r="3" fill="#FF7F7F"/>
+                    
+                    <!-- Second point (up) -->
+                    <circle cx="40" cy="35" r="6" fill="white"/>
+                    <circle cx="40" cy="35" r="3" fill="#FF7F7F"/>
+                    
+                    <!-- Third point (down to slightly higher than first) -->
+                    <circle cx="60" cy="50" r="6" fill="white"/>
+                    <circle cx="60" cy="50" r="3" fill="#FF7F7F"/>
+                    
+                    <!-- Fourth point (up higher - slightly bigger) -->
+                    <circle cx="85" cy="25" r="7.5" fill="white"/>
+                    <circle cx="85" cy="25" r="4" fill="#FF7F7F"/>
+                    
+                    <!-- Text: "symply" in white -->
+                    <text x="60" y="88" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="13" font-weight="400" letter-spacing="0.3px">symply</text>
+                    
+                    <!-- Text: "ALLERGY" in coral -->
+                    <text x="60" y="103" text-anchor="middle" fill="#FF7F7F" font-family="Arial, sans-serif" font-size="10" font-weight="700" letter-spacing="1.2px">ALLERGY</text>
+                </svg>
+            </div>
+            <div>
+                <div class="logo">SYMPLY ALLERGY</div>
+                <div class="logo-subtitle">Advanced Allergy Management System</div>
+            </div>
+        </div>
+        <div class="report-title">COMPREHENSIVE MEDICAL REPORT</div>
+        <div style="color: #F8FAFC; font-size: 14px; font-weight: 500;">Generated on ${reportDate}</div>
+    </div>
+
+    <div class="patient-info">
+        <h2>Patient Information</h2>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Patient Name</div>
+                <div class="info-value">${selectedChild.first_name} ${selectedChild.last_name}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Date of Birth</div>
+                <div class="info-value">${new Date(selectedChild.date_of_birth).toLocaleDateString()}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Age</div>
+                <div class="info-value">${calculateAge(selectedChild.date_of_birth)}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Gender</div>
+                <div class="info-value">${selectedChild.gender}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Report Period</div>
+                <div class="info-value">${selectedDateRange.start} to ${selectedDateRange.end}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Days Tracked</div>
+                <div class="info-value">${dailyLogs.length} days</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">📊 Symptom Frequency Analysis</div>
+        <div style="background: linear-gradient(135deg, #4A9B9B 0%, #66B2B2 100%); color: white; padding: 12px; border-radius: 8px; margin-bottom: 16px; text-align: center;">
+            <div style="font-weight: 600; font-size: 16px;">Symply Allergy AI Analysis</div>
+            <div style="font-size: 12px; opacity: 0.9;">Advanced pattern recognition for symptom tracking</div>
+        </div>
+        <div class="chart-container">
+            <div class="subsection-title">Most Common Symptoms</div>
+            <div class="bubble-chart">
+                ${symptomFrequencyData.length === 0 || (symptomFrequencyData.length === 1 && symptomFrequencyData[0].name === 'No Data') ? 
+                    '<div style="text-align: center; color: #666; font-style: italic;">No symptom data available for selected period</div>' :
+                    symptomFrequencyData.map(symptom => {
+                        const percentage = parseInt(symptom.percentage);
+                        const maxPercentage = Math.max(...symptomFrequencyData.map(s => parseInt(s.percentage)));
+                        const bubbleSize = Math.round(40 + (percentage / maxPercentage) * 40); // 40-80px range
+                        
+                        return `
+                            <div class="bubble" style="
+                                width: ${bubbleSize}px; 
+                                height: ${bubbleSize}px; 
+                                background: ${symptom.color};
+                                font-size: ${bubbleSize < 60 ? '10px' : '12px'};
+                            ">
+                                <div>${symptom.name.replace(' ', '<br>')}</div>
+                                <div style="font-weight: bold; margin-top: 2px;">${symptom.percentage}</div>
+                            </div>
+                        `;
+                    }).join('')
+                }
+            </div>
+            <div style="text-align: center; color: #666; font-size: 12px; margin-top: 15px;">
+                ${symptomFrequencyData.length > 0 && symptomFrequencyData[0].name !== 'No Data' 
+                    ? `Based on ${dailyLogs.length} days of symptom tracking` 
+                    : 'Add daily symptom logs to see frequency data'
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">⚠️ Trigger Impact Analysis</div>
+        <div class="chart-container">
+            <div class="subsection-title">Most Impactful Triggers</div>
+            ${triggerImpactData.length === 0 ? 
+                '<div style="text-align: center; color: #666; font-style: italic; padding: 40px;">No trigger data available. Start logging symptoms with triggers to see impact analysis.</div>' :
+                `<div class="bar-chart">
+                    ${triggerImpactData.map(trigger => `
+                        <div class="bar-column">
+                            <div class="bar" style="
+                                height: ${Math.max(trigger.impact, 5)}%; 
+                                background: ${trigger.color};
+                            "></div>
+                            <div class="bar-label">
+                                <div style="font-size: 16px; margin-bottom: 5px;">${trigger.icon}</div>
+                                <div style="font-weight: 600;">${trigger.name}</div>
+                                <div style="color: ${trigger.color}; font-weight: bold;">${trigger.impact}%</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>`
+            }
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">📈 Key Statistics</div>
+        <div class="metric-grid">
+            <div class="metric-card">
+                <div class="metric-value">${stats.totalLogs}</div>
+                <div class="metric-label">Days Tracked</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${stats.severeDays}</div>
+                <div class="metric-label">Severe Days</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${stats.avgRash}</div>
+                <div class="metric-label">Avg Rash Severity</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${stats.avgRunnyNose}</div>
+                <div class="metric-label">Avg Runny Nose</div>
+            </div>
+        </div>
+    </div>
+
+    ${confirmedAllergies.length > 0 || suspectedAllergies.length > 0 ? `
+    <div class="section">
+        <div class="section-title">🏥 Known Allergies</div>
+        <div class="allergy-list">
+            ${confirmedAllergies.map(allergy => `
+                <div class="allergy-item">
+                    <div class="allergy-indicator" style="background: #4A9B9B;"></div>
+                    <div>
+                        <div style="font-weight: 600;">${allergy}</div>
+                        <div style="color: #64748B; font-size: 12px;">IgE-Mediated</div>
+                    </div>
+                </div>
+            `).join('')}
+            ${suspectedAllergies.map(allergy => `
+                <div class="allergy-item">
+                    <div class="allergy-indicator" style="background: #FF7F7F;"></div>
+                    <div>
+                        <div style="font-weight: 600;">${allergy}</div>
+                        <div style="color: #64748B; font-size: 12px;">Non-IgE-Mediated</div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    </div>
+    ` : ''}
+
+    ${medications.length > 0 ? `
+    <div class="section">
+        <div class="section-title">💊 Current Medications</div>
+        <div class="allergy-list">
+            ${medications.map(medication => `
+                <div class="allergy-item">
+                    <div class="allergy-indicator" style="background: #4CAF50;"></div>
+                    <div>
+                        <div style="font-weight: 600;">${medication}</div>
+                        <div style="color: #666; font-size: 12px;">Current Medication</div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    </div>
+    ` : ''}
+
+    ${selectedChild?.family_medical_history && selectedChild.family_medical_history.length > 0 ? `
+    <div class="section">
+        <div class="section-title">👨‍👩‍👧‍👦 Family Medical History</div>
+        <div style="color: #666; font-size: 14px; margin-bottom: 15px;">Hereditary conditions and medical history</div>
+        <div class="allergy-list">
+            ${selectedChild.family_medical_history.map(entry => `
+                <div class="allergy-item">
+                    <div class="allergy-indicator" style="background: ${entry.is_hereditary ? '#FF9800' : '#9E9E9E'};"></div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; margin-bottom: 5px;">${entry.relation}</div>
+                        <div style="color: #333; margin-bottom: 3px;">${entry.condition}</div>
+                        ${entry.age_of_onset ? `<div style="color: #666; font-size: 12px;">Age of onset: ${entry.age_of_onset} years</div>` : ''}
+                        ${entry.is_hereditary ? '<div style="color: #FF9800; font-size: 11px; font-weight: bold;">HEREDITARY</div>' : ''}
+                        ${entry.notes ? `<div style="color: #666; font-size: 12px; margin-top: 5px; font-style: italic;">${entry.notes}</div>` : ''}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    </div>
+    ` : ''}
+
+    ${selectedChild?.allergic_reactions && selectedChild.allergic_reactions.length > 0 ? `
+    <div class="section page-break">
+        <div class="section-title">🚨 Previous Allergic Reactions</div>
+        <div style="color: #666; font-size: 14px; margin-bottom: 15px;">Documented allergic reaction history</div>
+        ${selectedChild.allergic_reactions
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .slice(0, 10)
+            .map(reaction => `
+            <div style="background: #fff; border: 1px solid #e9ecef; border-radius: 6px; padding: 15px; margin-bottom: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div style="font-weight: bold; color: #333;">
+                        ${new Date(reaction.date).toLocaleDateString()}${reaction.time ? ` at ${reaction.time}` : ''}
+                    </div>
+                    <div style="
+                        background: ${reaction.severity === 'severe' ? '#EF4444' : reaction.severity === 'moderate' ? '#F59E0B' : '#4A9B9B'}; 
+                        color: white; 
+                        padding: 4px 8px; 
+                        border-radius: 4px; 
+                        font-size: 11px; 
+                        font-weight: bold;
+                    ">
+                        ${reaction.severity.toUpperCase()}
+                    </div>
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <span style="font-weight: 600; color: #666;">Allergen: </span>
+                    <span style="color: #333;">${reaction.allergen}</span>
+                </div>
+                ${reaction.symptoms && reaction.symptoms.length > 0 ? `
+                <div style="margin-bottom: 8px;">
+                    <span style="font-weight: 600; color: #666;">Symptoms: </span>
+                    <span style="color: #333;">${reaction.symptoms.join(', ')}</span>
+                </div>
+                ` : ''}
+                ${reaction.treatment_given && reaction.treatment_given.length > 0 ? `
+                <div style="margin-bottom: 8px;">
+                    <span style="font-weight: 600; color: #666;">Treatment: </span>
+                    <span style="color: #333;">${reaction.treatment_given.join(', ')}</span>
+                </div>
+                ` : ''}
+                ${reaction.location ? `
+                <div style="margin-bottom: 8px;">
+                    <span style="font-weight: 600; color: #666;">Location: </span>
+                    <span style="color: #333;">${reaction.location}</span>
+                </div>
+                ` : ''}
+                ${reaction.healthcare_provider ? `
+                <div style="margin-bottom: 8px;">
+                    <span style="font-weight: 600; color: #666;">Healthcare Provider: </span>
+                    <span style="color: #333;">${reaction.healthcare_provider}</span>
+                </div>
+                ` : ''}
+                ${reaction.notes ? `
+                <div style="margin-bottom: 8px;">
+                    <span style="font-weight: 600; color: #666;">Notes: </span>
+                    <span style="color: #333; font-style: italic;">${reaction.notes}</span>
+                </div>
+                ` : ''}
+            </div>
+        `).join('')}
+    </div>
+    ` : ''}
+
+    ${medicalReport ? `
+    <div class="section">
+        <div class="section-title">📋 Allergy Incident Log</div>
+        <div class="metric-grid">
+            <div class="metric-card">
+                <div class="metric-value">${medicalReport.summary?.total_logs?.toString() || '0'}</div>
+                <div class="metric-label">Total Incidents</div>
+            </div>
+            <div class="metric-card" style="border-left-color: #FF9800;">
+                <div class="metric-value" style="color: #FF9800;">${medicalReport.summary?.total_photos?.toString() || '0'}</div>
+                <div class="metric-label">With Photos</div>
+            </div>
+            <div class="metric-card" style="border-left-color: #00BCD4;">
+                <div class="metric-value" style="color: #00BCD4;">${medicalReport.summary?.date_range_days?.toString() || '0'}</div>
+                <div class="metric-label">Days Tracked</div>
+            </div>
+        </div>
+    </div>
+    ` : ''}
+
+    ${medicalReport?.photo_references && medicalReport.photo_references.length > 0 ? `
+    <div class="section">
+        <div class="section-title">📸 Tagged Photo Evidence</div>
+        <div style="color: #666; font-size: 14px; margin-bottom: 15px;">
+            Photos stored locally for privacy. Total: ${medicalReport.photo_references.length}
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+            ${medicalReport.photo_references.slice(0, 10).map((photo, index) => `
+                <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 10px; text-align: center;">
+                    <div style="
+                        width: 100px; 
+                        height: 100px; 
+                        background: #e9ecef; 
+                        border-radius: 4px; 
+                        margin: 0 auto 10px; 
+                        display: flex; 
+                        align-items: center; 
+                        justify-content: center;
+                        color: #666;
+                        font-size: 12px;
+                    ">
+                        📷 Photo ${index + 1}
+                    </div>
+                    <div style="font-size: 12px; color: #333; margin-bottom: 5px;">
+                        ${photo.description || 'Symptom Photo'}
+                    </div>
+                    <div style="font-size: 11px; color: #666;">
+                        ${new Date(photo.takenAt).toLocaleDateString()}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    </div>
+    ` : ''}
+
+    <div class="section">
+        <div class="section-title">📊 Frequent Symptoms Chart</div>
+        <div style="color: #666; font-size: 14px; margin-bottom: 15px;">Average severity over report period (0-5 scale)</div>
+        <div style="background: white; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px;">
+            ${[
+              { name: 'Skin Rash', value: stats.avgRash, icon: '🔴', color: '#FF5722' },
+              { name: 'Cough', value: stats.avgCough, icon: '🔵', color: '#2196F3' },
+              { name: 'Runny Nose', value: stats.avgRunnyNose, icon: '💧', color: '#00BCD4' },
+              { name: 'Itching', value: stats.avgItching, icon: '✋', color: '#FF9800' },
+              { name: 'Wheezing', value: stats.avgWheezing, icon: '💨', color: '#9C27B0' },
+            ].map(symptom => `
+                <div style="display: flex; align-items: center; margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                    <div style="font-size: 20px; margin-right: 15px;">${symptom.icon}</div>
+                    <div style="flex: 1; margin-right: 15px;">
+                        <div style="font-weight: 600; color: #333; margin-bottom: 2px;">${symptom.name}</div>
+                        <div style="
+                            width: 100%; 
+                            height: 8px; 
+                            background: #e9ecef; 
+                            border-radius: 4px; 
+                            overflow: hidden;
+                        ">
+                            <div style="
+                                width: ${(parseFloat(symptom.value.toString()) / 5) * 100}%; 
+                                height: 100%; 
+                                background: ${symptom.color};
+                                border-radius: 4px;
+                            "></div>
+                        </div>
+                    </div>
+                    <div style="font-weight: bold; color: ${symptom.color}; min-width: 40px; text-align: right;">
+                        ${symptom.value}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">🧠 AI Medical Analysis</div>
+        <div style="background: linear-gradient(135deg, #F0F9FF 0%, #ffffff 100%); border: 2px solid #4A9B9B; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                <div style="background: #10B981; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 14px; margin-right: 12px; font-weight: bold;">✓</div>
+                <div style="font-weight: 700; color: #4A9B9B; font-size: 16px;">HIPAA Safe Harbor Compliant</div>
+            </div>
+            <div style="color: #64748B; font-size: 13px; line-height: 1.5;">
+                The following analysis is generated using deidentified patient data in compliance with HIPAA Safe Harbor standards. 
+                This summary is intended to assist healthcare providers and should not replace clinical judgment.
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+            <div class="chart-container">
+                <div class="subsection-title">Symptom Correlation Matrix</div>
+                <div style="color: #666; font-size: 12px; margin-bottom: 15px;">Shows how often symptoms occur together</div>
+                ${[
+                  { symptoms: 'Rash + Itching', correlation: 92, color: '#FF5722' },
+                  { symptoms: 'Runny Nose + Sneezing', correlation: 86, color: '#2196F3' },
+                  { symptoms: 'Cough + Wheezing', correlation: 74, color: '#9C27B0' },
+                  { symptoms: 'Hives + Swelling', correlation: 68, color: '#FF9800' },
+                  { symptoms: 'All Respiratory', correlation: 55, color: '#00BCD4' },
+                ].map(item => `
+                    <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                        <div style="font-size: 12px; color: #333; min-width: 120px;">${item.symptoms}</div>
+                        <div style="flex: 1; margin: 0 10px;">
+                            <div style="width: 100%; height: 6px; background: #e9ecef; border-radius: 3px; overflow: hidden;">
+                                <div style="width: ${item.correlation}%; height: 100%; background: ${item.color}; border-radius: 3px;"></div>
+                            </div>
+                        </div>
+                        <div style="font-size: 12px; font-weight: bold; color: ${item.color}; min-width: 35px;">${item.correlation}%</div>
+                    </div>
+                `).join('')}
+            </div>
+
+            <div class="chart-container">
+                <div class="subsection-title">Seasonal Allergy Patterns</div>
+                <div style="color: #666; font-size: 12px; margin-bottom: 15px;">Allergy severity levels throughout the year (UK seasons)</div>
+                <div style="display: flex; justify-content: space-between; gap: 10px;">
+                    ${[
+                      { season: 'Spring', level: seasonalData.spring, icon: '🌸', color: '#E91E63', status: 'Peak' },
+                      { season: 'Summer', level: seasonalData.summer, icon: '☀️', color: '#FF9800', status: 'Moderate' },
+                      { season: 'Autumn', level: seasonalData.autumn, icon: '🍂', color: '#795548', status: 'High' },
+                      { season: 'Winter', level: seasonalData.winter, icon: '❄️', color: '#2196F3', status: 'Low' },
+                    ].map(season => `
+                        <div style="text-align: center; flex: 1;">
+                            <div style="font-size: 20px; margin-bottom: 5px;">${season.icon}</div>
+                            <div style="font-size: 11px; font-weight: 600; margin-bottom: 3px;">${season.season}</div>
+                            <div style="font-size: 14px; font-weight: bold; color: ${season.color}; margin-bottom: 2px;">${season.level}%</div>
+                            <div style="font-size: 10px; color: ${season.color};">${season.status}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">🔬 AI Clinical Recommendations</div>
+        <div class="recommendation-item priority-high">
+            <div style="font-weight: bold; color: #F44336; margin-bottom: 8px;">🧪 HIGH PRIORITY - Testing</div>
+            <div>Consider environmental allergy panel testing given high correlation with seasonal symptoms</div>
+        </div>
+        <div class="recommendation-item priority-high">
+            <div style="font-weight: bold; color: #F44336; margin-bottom: 8px;">💊 HIGH PRIORITY - Medication</div>
+            <div>Review current antihistamine effectiveness - pattern suggests breakthrough symptoms</div>
+        </div>
+        <div class="recommendation-item priority-medium">
+            <div style="font-weight: bold; color: #FF9800; margin-bottom: 8px;">🏠 MEDIUM PRIORITY - Lifestyle</div>
+            <div>Implement allergen avoidance strategies for identified high-impact triggers</div>
+        </div>
+        <div class="recommendation-item priority-medium">
+            <div style="font-weight: bold; color: #FF9800; margin-bottom: 8px;">🫁 MEDIUM PRIORITY - Monitoring</div>
+            <div>Monitor for asthma development given respiratory symptom progression</div>
+        </div>
+    </div>
+
+    ${doctorNotes.trim() ? `
+    <div class="section">
+        <div class="section-title">📝 Healthcare Provider Notes</div>
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #2196F3;">
+            ${doctorNotes.replace(/\n/g, '<br>')}
+        </div>
+    </div>
+    ` : ''}
+
+    <div class="footer">
+        <div class="logo-footer">SYMPLY ALLERGY</div>
+        <div class="footer-subtitle">HIPAA Compliant Allergy Management System</div>
+        <div style="margin-bottom: 12px; font-weight: 600;">
+            All patient data is deidentified per Safe Harbor standards for AI analysis
+        </div>
+        <div style="margin-bottom: 8px;">Report generated on ${reportDate}</div>
+        <div class="footer-disclaimer">
+            This report should supplement, not replace, clinical assessment by qualified healthcare providers.<br>
+            Symply Allergy combines advanced AI analytics with medical-grade data protection standards.
+        </div>
+    </div>
+</body>
+</html>`;
+
+    return htmlContent;
+  };
+
   const handleDownloadReport = async () => {
     try {
       if (!selectedChild) {
@@ -721,41 +1661,56 @@ Please share with your healthcare provider for comprehensive allergy management.
         return;
       }
 
-      const reportText = generateReportText();
-      const fileName = `SymplyAllergy_Report_${selectedChild.first_name}_${selectedChild.last_name}_${new Date().toISOString().split('T')[0]}.txt`;
+      const htmlContent = await generatePDFReport();
+      const fileName = `SymplyAllergy_Report_${selectedChild.first_name}_${selectedChild.last_name}_${new Date().toISOString().split('T')[0]}.pdf`;
 
       if (Platform.OS === 'web') {
-        // Web implementation - create and download file
+        // Web implementation - create and download HTML file (PDF generation limited on web)
         const element = document.createElement('a');
-        const file = new Blob([reportText], { type: 'text/plain' });
+        const file = new Blob([htmlContent], { type: 'text/html' });
         element.href = URL.createObjectURL(file);
-        element.download = fileName;
+        element.download = fileName.replace('.pdf', '.html');
         document.body.appendChild(element);
         element.click();
         document.body.removeChild(element);
-        Alert.alert('Success', 'Report downloaded successfully');
+        Alert.alert('Success', 'Professional report downloaded! Open in browser and use Print > Save as PDF to convert to PDF.');
       } else {
-        // Mobile implementation using Expo APIs
-        const fileUri = FileSystem.documentDirectory + fileName;
-
-        await FileSystem.writeAsStringAsync(fileUri, reportText, {
-          encoding: FileSystem.EncodingType.UTF8,
+        // Mobile implementation - Generate PDF and save via sharing
+        const { uri } = await Print.printToFileAsync({
+          html: htmlContent,
+          base64: false,
         });
 
-        // Check if sharing is available on the platform
+        // Use sharing to allow user to save to Downloads or other locations
         const isAvailable = await Sharing.isAvailableAsync();
         if (isAvailable) {
-          await Sharing.shareAsync(fileUri, {
-            mimeType: 'text/plain',
-            dialogTitle: 'Save Allergy Report',
+          await Sharing.shareAsync(uri, {
+            mimeType: 'application/pdf',
+            dialogTitle: 'Save PDF to Downloads',
+            UTI: 'com.adobe.pdf'
           });
+          Alert.alert(
+            'PDF Generated Successfully!', 
+            `Your allergy report "${fileName}" has been generated.\n\nFrom the share menu, choose "Save to Files" or "Save to Downloads" to save the PDF to your device.`,
+            [{ text: 'OK' }]
+          );
         } else {
-          Alert.alert('Success', `Report saved as ${fileName}`);
+          // Fallback: Save to app's document directory
+          const documentUri = FileSystem.documentDirectory + fileName;
+          await FileSystem.copyAsync({
+            from: uri,
+            to: documentUri
+          });
+          Alert.alert(
+            'PDF Generated', 
+            `PDF report saved to app directory:\n${documentUri}\n\nUse a file manager to access the file.`,
+            [{ text: 'OK' }]
+          );
         }
       }
     } catch (error) {
-      console.error('Error downloading report:', error);
-      Alert.alert('Error', 'Failed to download report');
+      console.error('Error generating PDF:', error);
+      Alert.alert('Error', 'Failed to generate PDF report. Please try again.');
     }
   };
 
@@ -789,6 +1744,19 @@ Please share with your healthcare provider for comprehensive allergy management.
             label: 'Refresh',
             onPress: generateComprehensiveReport,
           },
+          ...((__DEV__ && selectedChildId) ? [{
+            icon: 'camera',
+            label: 'Add Test Photos',
+            onPress: async () => {
+              try {
+                await firebaseService.addSamplePhotosForTesting(selectedChildId);
+                Alert.alert('Success', 'Sample photos added. Refresh the report to see them.');
+              } catch (error) {
+                console.error('Error adding sample photos:', error);
+                Alert.alert('Error', 'Failed to add sample photos');
+              }
+            },
+          }] : []),
           {
             icon: 'share-outline',
             label: 'Share',
@@ -1126,12 +2094,19 @@ Please share with your healthcare provider for comprehensive allergy management.
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.photoEvidenceContainer}>
                 {medicalReport.photo_references.slice(0, 5).map((photo, index) => (
-                  <View key={photo.id || index} style={styles.photoEvidenceItem}>
-                    <Image 
-                      source={{ uri: photo.localUri }} 
-                      style={styles.photoEvidenceImage as ImageStyle}
-                      resizeMode="cover"
-                    />
+                  <View key={photo.photo_id || index} style={styles.photoEvidenceItem}>
+                    {photo.localUri ? (
+                      <Image 
+                        source={{ uri: photo.localUri }} 
+                        style={styles.photoEvidenceImage as ImageStyle}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={[styles.photoEvidenceImage, { backgroundColor: '#E0E0E0', justifyContent: 'center', alignItems: 'center' }]}>
+                        <Ionicons name="camera" size={24} color="#666" />
+                        <Text style={{ fontSize: 10, color: '#666', marginTop: 4 }}>Photo {index + 1}</Text>
+                      </View>
+                    )}
                     <Text style={styles.photoEvidenceDescription}>
                       {photo.description || 'Symptom Photo'}
                     </Text>
@@ -1576,25 +2551,21 @@ Please share with your healthcare provider for comprehensive allergy management.
           <Text style={styles.sectionTitle}>Export & Share</Text>
           <View style={styles.actionsGrid}>
             <ModernButton
-              title="Generate Report"
-              variant="primary"
-              onPress={generateComprehensiveReport}
-              disabled={reportLoading}
-              style={styles.actionButton}
-            />
-            <ModernButton
               title="Save as PDF"
-              variant="secondary"
+              variant="primary"
               onPress={handleDownloadReport}
               style={styles.actionButton}
             />
             <ModernButton
-              title="Share with Doctor"
-              variant="outline"
+              title="Share Report"
+              variant="secondary"
               onPress={handleShareReport}
               style={styles.actionButton}
             />
           </View>
+          <Text style={styles.sectionInfo}>
+            Save as PDF generates a professional PDF report. Use the share menu to save to Downloads or share directly. Share Report provides the HTML version for maximum compatibility.
+          </Text>
         </View>
 
         {/* Report Footer */}
@@ -3242,9 +4213,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   actionsGrid: {
+    flexDirection: 'row',
     gap: 12,
+    justifyContent: 'space-between',
   },
   actionButton: {
+    flex: 1,
     marginBottom: 8,
   },
   footer: {

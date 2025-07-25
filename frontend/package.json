@@ -37,7 +37,8 @@
     "react-native-screens": "~4.11.1",
     "react-native-web": "^0.20.0",
     "react-redux": "^9.2.0",
-    "@react-native-community/datetimepicker": "8.4.1"
+    "@react-native-community/datetimepicker": "8.4.1",
+    "expo-media-library": "~17.1.7"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

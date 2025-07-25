@@ -1395,7 +1395,7 @@ class HIPAAFirebaseService {
       if (this.isTestMode) {
         // Use mock operations in test mode
         console.log('Test mode: Saving photo metadata to mock database');
-        await this.mockSetDoc(`photos/${photoId}`, photoEntry);
+        await this.mockSetDoc(`photo_metadata/${photoId}`, photoEntry);
         console.log('Test mode photo metadata saved:', photoId);
         
         // Return data in PhotoEntry format for consistency
@@ -1417,7 +1417,7 @@ class HIPAAFirebaseService {
       }
 
       // Save photo metadata to Firestore
-      const docRef = doc(firestore, 'photos', photoId);
+      const docRef = doc(firestore, 'photo_metadata', photoId);
       await setDoc(docRef, photoEntry);
 
       await this.logAccess('CREATE', 'photo_metadata', photoId);
@@ -1460,12 +1460,34 @@ class HIPAAFirebaseService {
       }
 
       console.log('Creating medical report for child:', childId);
+      console.log('Using real Firestore (test mode:', this.isTestMode, ')');
+      
+      // Debug: Let's see what child profiles exist
+      try {
+        const childrenQuery = query(collection(firestore, 'children'), limit(5));
+        const childrenSnapshot = await getDocs(childrenQuery);
+        console.log('Available children in Firestore:', childrenSnapshot.size);
+        childrenSnapshot.forEach((doc) => {
+          const data = doc.data();
+          console.log('Child:', doc.id, 'name:', data.first_name, data.last_name);
+        });
+      } catch (debugError) {
+        console.log('Debug error getting children:', debugError);
+      }
 
       // Get daily logs
       const dailyLogs = await this.getChildDailyLogs(childId, 30);
       
       // Get photos
       const photos = await this.getChildPhotos(childId, 50);
+      console.log('=== PHOTO DEBUG INFO ===');
+      console.log('Total photos retrieved:', photos.length);
+      console.log('Photos data:', photos.map(p => ({
+        id: p.id,
+        description: p.description,
+        takenAt: p.takenAt,
+        localUri: p.localUri ? 'HAS_URI' : 'NO_URI'
+      })));
 
       // Filter by date range if provided
       const filteredLogs = dateRange 
@@ -1478,6 +1500,18 @@ class HIPAAFirebaseService {
             return photoDate >= dateRange.start && photoDate <= dateRange.end;
           })
         : photos;
+      
+      console.log('=== FILTERED PHOTO DEBUG INFO ===');
+      console.log('Filtered photos count:', filteredPhotos.length);
+      console.log('Date range:', dateRange);
+      if (filteredPhotos.length > 0) {
+        console.log('First few filtered photos:', filteredPhotos.slice(0, 3).map(p => ({
+          id: p.id,
+          description: p.description,
+          takenAt: p.takenAt,
+          bodyPart: p.bodyPart
+        })));
+      }
 
       // Generate deidentified summary for AI analysis
       const deidentifiedData = this.createDeidentifiedSummary(filteredLogs, filteredPhotos);
@@ -1509,16 +1543,28 @@ class HIPAAFirebaseService {
         daily_logs: filteredLogs,
         photo_references: filteredPhotos.map(photo => ({
           photo_id: photo.id,
-          local_uri: photo.localUri,
+          localUri: photo.localUri,
           description: photo.description,
-          body_area: photo.bodyPart,
-          severity_rating: photo.severity,
-          taken_at: photo.takenAt,
+          bodyArea: photo.bodyPart,
+          severityRating: photo.severity,
+          takenAt: photo.takenAt,
           tags: photo.tags
         })),
         ai_insights: aiInsights,
         privacy_notice: "Photos are stored locally on device. This report contains deidentified data for AI analysis."
       };
+
+      console.log('=== FINAL REPORT DEBUG INFO ===');
+      console.log('Report photo_references count:', report.photo_references.length);
+      console.log('Daily logs count:', report.daily_logs.length);
+      if (report.photo_references.length > 0) {
+        console.log('First photo reference:', report.photo_references[0]);
+      } else {
+        console.log('No photo references in report');
+        console.log('Original photos count before filtering:', photos.length);
+        console.log('Filtered photos count:', filteredPhotos.length);
+        console.log('Date range filter:', dateRange);
+      }
 
       await this.logAccess('CREATE', 'medical_report', childId);
       console.log('Medical report generated successfully');
@@ -1570,15 +1616,31 @@ class HIPAAFirebaseService {
         }
       } else {
         // Firestore mode: Query photos collection
+        console.log('=== REAL FIRESTORE PHOTO QUERY ===');
+        console.log('Querying photo_metadata collection for child_id:', childId);
+        console.log('Limit count:', limitCount);
+        
+        // First, let's see if there are any photos at all in the collection
+        const allPhotosQuery = query(collection(firestore, 'photo_metadata'), limit(10));
+        const allPhotosSnapshot = await getDocs(allPhotosQuery);
+        console.log('Total photos in photo_metadata collection (first 10):', allPhotosSnapshot.size);
+        allPhotosSnapshot.forEach((doc) => {
+          const data = doc.data();
+          console.log('Existing photo:', doc.id, 'child_id:', data.child_id, 'description:', data.description);
+        });
+        
         const q = query(
-          collection(firestore, 'photos'),
+          collection(firestore, 'photo_metadata'),
           where('child_id', '==', childId),
           ...(limitCount ? [limit(limitCount)] : [])
         );
 
         const querySnapshot = await getDocs(q);
+        console.log('Firestore query returned', querySnapshot.size, 'documents for child', childId);
+        
         querySnapshot.forEach((doc) => {
           const photoData = doc.data();
+          console.log('Photo document:', doc.id, photoData);
           photos.push({
             id: doc.id,
             childId: photoData.child_id,
@@ -1870,6 +1932,87 @@ class HIPAAFirebaseService {
     });
     
     return trends;
+  }
+
+  /**
+   * Debug function to add sample photos for testing
+   */
+  async addSamplePhotosForTesting(childId: string): Promise<void> {
+    try {
+      if (!this.userId) {
+        throw new Error('User not authenticated');
+      }
+
+      console.log('Adding sample photos for child:', childId);
+
+      const samplePhotos = [
+        {
+          child_id: childId,
+          local_uri: 'https://picsum.photos/200/200?random=1',
+          description: 'Hives on arm after eating peanuts',
+          body_area: 'arm',
+          severity_rating: 3,
+          photo_type: 'symptom',
+          tags: ['hives', 'peanut-reaction'],
+          taken_at: new Date('2025-01-20T10:30:00Z').toISOString(),
+          created_at: new Date().toISOString(),
+          data_classification: 'PHI',
+          storage_type: 'local'
+        },
+        {
+          child_id: childId,
+          local_uri: 'https://picsum.photos/200/200?random=2', 
+          description: 'Facial swelling from dairy',
+          body_area: 'face',
+          severity_rating: 4,
+          photo_type: 'symptom',
+          tags: ['swelling', 'dairy-reaction'],
+          taken_at: new Date('2025-01-18T15:45:00Z').toISOString(),
+          created_at: new Date().toISOString(),
+          data_classification: 'PHI',
+          storage_type: 'local'
+        },
+        {
+          child_id: childId,
+          local_uri: 'https://picsum.photos/200/200?random=3',
+          description: 'Skin rash on back',
+          body_area: 'back',
+          severity_rating: 2,
+          photo_type: 'symptom',
+          tags: ['rash', 'unknown-trigger'],
+          taken_at: new Date('2025-01-15T09:20:00Z').toISOString(),
+          created_at: new Date().toISOString(),
+          data_classification: 'PHI',
+          storage_type: 'local'
+        }
+      ];
+
+      if (this.isTestMode) {
+        // Add to mock database
+        for (let i = 0; i < samplePhotos.length; i++) {
+          const photoId = `sample_photo_${Date.now()}_${i}`;
+          await this.mockSetDoc(`photo_metadata/${photoId}`, {
+            photo_id: photoId,
+            ...samplePhotos[i]
+          });
+          console.log('Added sample photo to mock DB:', photoId);
+        }
+      } else {
+        // Add to real Firestore
+        for (const photo of samplePhotos) {
+          const docRef = await addDoc(collection(firestore, 'photo_metadata'), {
+            photo_id: `sample_photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            ...photo
+          });
+          console.log('Added sample photo to Firestore:', docRef.id);
+        }
+      }
+
+      console.log('Sample photos added successfully');
+    } catch (error) {
+      console.error('Error adding sample photos:', error);
+      throw error;
+    }
   }
 }
 
