@@ -107,44 +107,61 @@ class HybridAIReportGenerator:
         request
     ) -> Dict[str, Any]:
         """
-        Generate AI medical insights using only de-identified data.
+        Generate AI medical insights using HIPAA Safe Harbor de-identified data only.
         """
         ai_start = datetime.utcnow()
         
-        print("🤖 Generating AI medical insights with de-identified data...")
+        print("🤖 Generating AI medical insights with HIPAA Safe Harbor de-identified data...")
         
-        # De-identify all data before sending to AI
+        # Use HIPAA service for proper de-identification
         child_data = {
-            "age_years": self._calculate_age(child.date_of_birth),
-            "gender": child.gender if hasattr(child, 'gender') else 'unknown',
-            "known_allergies": self._parse_json_field(child.known_allergies),
-            "medications": self._parse_json_field(child.medications),
-            "medical_conditions": self._parse_json_field(child.medical_conditions)
+            "id": getattr(child, 'id', 'unknown'),
+            "date_of_birth": getattr(child, 'date_of_birth', None),
+            "gender": getattr(child, 'gender', 'unknown'),
+            "known_allergies": self._parse_json_field(getattr(child, 'known_allergies', None)),
+            "medications": self._parse_json_field(getattr(child, 'medications', None)),
+            "medical_conditions": self._parse_json_field(getattr(child, 'medical_conditions', None))
         }
         
-        # De-identify daily logs
-        deidentified_logs = []
-        for i, log in enumerate(daily_logs):
-            relative_date = f"Day_{i+1}"  # Remove actual dates
-            
-            log_data = {
-                "relative_date": relative_date,
-                "symptoms": log.symptoms if hasattr(log, 'symptoms') else [],
-                "symptom_severity": log.symptom_severity if hasattr(log, 'symptom_severity') else {},
-                "triggers": log.triggers if hasattr(log, 'triggers') else [],
-                "mood": log.mood if hasattr(log, 'mood') else 'unknown',
-                "mood_scale": log.mood_scale if hasattr(log, 'mood_scale') else 5,
-                "general_notes": "Symptoms and observations noted",  # Generic description
+        parent_data = {
+            "id": getattr(parent, 'id', 'unknown'),
+            "full_name": getattr(parent, 'full_name', 'Unknown'),
+            "email": getattr(parent, 'email', 'unknown@example.com')
+        }
+        
+        # Convert daily logs to dictionary format for HIPAA service
+        log_dicts = []
+        for log in daily_logs:
+            log_dict = {
+                "id": getattr(log, 'id', None),
+                "date": getattr(log, 'date', None),
+                "symptoms": getattr(log, 'symptoms', []),
+                "symptom_severity": getattr(log, 'symptom_severity', {}),
+                "triggers": getattr(log, 'triggers', []),
+                "mood": getattr(log, 'mood', 'unknown'),
+                "mood_scale": getattr(log, 'mood_scale', 5),
+                "symptoms_notes": getattr(log, 'symptoms_notes', ''),
+                "general_notes": getattr(log, 'general_notes', ''),
                 "eczema_severity": getattr(log, 'eczema_severity', 'mild'),
                 "asthma_severity": getattr(log, 'asthma_severity', 'mild'),
-                "allergic_reaction_severity": getattr(log, 'allergic_reaction_severity', 'mild')
+                "allergic_reaction_severity": getattr(log, 'allergic_reaction_severity', 'mild'),
+                "medications_taken": getattr(log, 'medications_taken', []),
+                "activities": getattr(log, 'activities', [])
             }
-            deidentified_logs.append(log_data)
+            log_dicts.append(log_dict)
         
-        # Create AI prompt for medical analysis
-        prompt = self._create_medical_analysis_prompt(child_data, deidentified_logs)
+        # Apply HIPAA Safe Harbor de-identification
+        deidentified_patient = self.hipaa_service.de_identify_patient_data(child_data, parent_data)
+        deidentified_logs = self.hipaa_service.de_identify_medical_logs(log_dicts)
         
-        # Get AI insights
+        # Create HIPAA-compliant prompt
+        prompt = self.hipaa_service.create_hipaa_compliant_prompt({
+            **deidentified_patient,
+            "medical_logs": deidentified_logs,
+            "photo_count": len(photos) if photos else 0
+        })
+        
+        # Get AI insights using o4-mini model
         response = await self.client.chat.completions.create(
             model=self.model,
             messages=[
@@ -169,8 +186,10 @@ class HybridAIReportGenerator:
             "ai_medical_analysis": ai_content,
             "ai_processing_time": (ai_end - ai_start).total_seconds(),
             "model_used": self.model,
-            "analysis_type": "Medical insights and recommendations",
-            "data_sent_to_ai": "De-identified symptom patterns, age, gender, general medical history only"
+            "analysis_type": "Medical insights and recommendations using HIPAA Safe Harbor de-identified data",
+            "data_sent_to_ai": "HIPAA Safe Harbor compliant de-identified data: age categories, general symptoms, relative timepoints, generic medical conditions - NO names, dates, locations, or other PHI",
+            "hipaa_compliance": "Safe Harbor Method 45 CFR 164.514(b)(2) - All 18 HIPAA identifiers removed",
+            "phi_protection": "No Protected Health Information (PHI) sent to OpenAI"
         }
     
     async def _create_complete_report_with_personal_data(
@@ -281,43 +300,6 @@ class HybridAIReportGenerator:
         }
         
         return complete_report
-    
-    def _create_medical_analysis_prompt(self, child_data: Dict, logs: List[Dict]) -> str:
-        """Create prompt for AI medical analysis using de-identified data."""
-        prompt = f"""
-Analyze this pediatric allergy tracking data and provide medical insights:
-
-PATIENT PROFILE (De-identified):
-- Age: {child_data['age_years']} years
-- Gender: {child_data['gender']}
-- Known Allergies: {child_data['known_allergies']}
-- Current Medications: {child_data['medications']}
-- Medical Conditions: {child_data['medical_conditions']}
-
-SYMPTOM TRACKING DATA ({len(logs)} days):
-"""
-        
-        for log in logs[:10]:  # Limit to recent entries
-            prompt += f"""
-{log['relative_date']}:
-- Symptoms: {log['symptoms']}
-- Severity: {log['symptom_severity']}
-- Triggers: {log['triggers']}
-- Mood: {log['mood']} (scale: {log['mood_scale']}/10)
-- Eczema: {log['eczema_severity']}, Asthma: {log['asthma_severity']}, Reactions: {log['allergic_reaction_severity']}
-"""
-
-        prompt += """
-Please provide:
-1. Pattern Analysis: What patterns do you see in symptoms and triggers?
-2. Severity Assessment: How would you characterize the current management?
-3. Risk Factors: What concerning trends should be monitored?
-4. Medical Recommendations: What management strategies would you suggest?
-5. Follow-up: What should be discussed with the healthcare provider?
-
-Focus on medical insights and clinical recommendations. Do not include personal identifiers.
-"""
-        return prompt
     
     def _calculate_age(self, birth_date) -> int:
         """Calculate age from birth date."""
