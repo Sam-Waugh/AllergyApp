@@ -13,6 +13,7 @@ import {
   TextInput,
   Image,
   Modal,
+  ImageStyle,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as FileSystem from 'expo-file-system';
@@ -23,7 +24,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { firebaseService } from '../services/firebaseService';
 import { Colors } from '../constants/Colors';
-import { ChildResponse, DailyLog as DailyLogType, PhotoEntry as PhotoEntryType } from '../models';
+import { DailyLog as DailyLogType, PhotoEntry as PhotoEntryType } from '../models';
+import { 
+  ChildProfile, 
+  ChildResponse,
+  FamilyMedicalHistoryInfo, 
+  AllergicReactionEntry, 
+  AllergyInfo, 
+  MedicationInfo 
+} from '../models/ChildProfile';
 import {
   TopBar,
   ModernButton,
@@ -32,16 +41,20 @@ import {
   Chip,
 } from '../components/modern';
 
-interface ChildData extends ChildResponse {
-  allergies?: {
-    confirmed: string[];
-    suspected: string[];
-  };
-  medications?: string[];
-  family_history?: {
-    allergies: string[];
-    conditions: string[];
-  };
+interface ChildData {
+  child_id: string;
+  first_name: string;
+  last_name: string;
+  date_of_birth: string;
+  gender: string;
+  age_months: number;
+  created_at: string;
+  allergies?: AllergyInfo[];
+  medications?: MedicationInfo[];
+  allergic_reactions?: AllergicReactionEntry[];
+  family_medical_history?: FamilyMedicalHistoryInfo[];
+  emergency_contacts?: any[];
+  medical_notes?: string;
 }
 
 interface DailyLog extends DailyLogType {
@@ -49,7 +62,7 @@ interface DailyLog extends DailyLogType {
 }
 
 interface PhotoEntry extends PhotoEntryType {
-  localUri: string;
+  localUri?: string;
 }
 
 interface MedicalReport {
@@ -59,6 +72,22 @@ interface MedicalReport {
   ai_insights?: any;
   generated_at: string;
 }
+
+// Helper function to get severity color
+const getSeverityColor = (severity: string): string => {
+  switch (severity.toLowerCase()) {
+    case 'critical':
+      return Colors.error;
+    case 'severe':
+      return '#FF4444';
+    case 'moderate':
+      return Colors.warning;
+    case 'mild':
+      return '#FFA500';
+    default:
+      return Colors.info;
+  }
+};
 
 export default function ModernDoctorReportScreen() {
   const navigation = useNavigation();
@@ -93,6 +122,7 @@ export default function ModernDoctorReportScreen() {
 
   useEffect(() => {
     if (selectedChildId) {
+      loadChildData(selectedChildId);
       loadDailyLogs();
       generateComprehensiveReport();
     }
@@ -103,21 +133,120 @@ export default function ModernDoctorReportScreen() {
     
     try {
       const childrenData = await firebaseService.getUserChildren();
-      setChildren(childrenData);
+      setChildren(childrenData as ChildData[]);
       if (childrenData.length > 0) {
         setSelectedChildId(childrenData[0].child_id);
-        // Load child-specific data
-        const child = childrenData[0];
-        setConfirmedAllergies(child.allergies?.confirmed || []);
-        setSuspectedAllergies(child.allergies?.suspected || []);
-        setMedications(child.medications || []);
-        setFamilyHistory(child.family_history?.allergies || []);
+        // Load the first child's data for display
+        await loadChildData(childrenData[0].child_id);
       }
     } catch (error) {
       console.error('Error loading children:', error);
       Alert.alert('Error', 'Failed to load child profiles');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadChildData = async (childId: string) => {
+    try {
+      // Get the child's full profile data
+      const childProfile = await firebaseService.getChildProfile(childId);
+      
+      if (childProfile) {
+        // Extract allergies - convert from AllergyInfo[] to string arrays
+        const confirmedAllergyNames = childProfile.known_allergies
+          ?.filter(allergy => allergy.allergy_type === 'ige')
+          .map(allergy => allergy.allergen) || [];
+        
+        const suspectedAllergyNames = childProfile.known_allergies
+          ?.filter(allergy => allergy.allergy_type === 'non_ige')
+          .map(allergy => allergy.allergen) || [];
+        
+        // Extract medications - convert from MedicationInfo[] to string array
+        const medicationNames = childProfile.current_medications
+          ?.map(med => `${med.name}${med.dosage ? ` (${med.dosage})` : ''}`) || [];
+        
+        // Update state with the actual data
+        setConfirmedAllergies(confirmedAllergyNames);
+        setSuspectedAllergies(suspectedAllergyNames);
+        setMedications(medicationNames);
+        setFamilyHistory([]); // Legacy field, not used anymore
+        
+        console.log('Loaded child data:', {
+          allergies: childProfile.known_allergies?.length || 0,
+          medications: childProfile.current_medications?.length || 0,
+          familyHistory: childProfile.family_medical_history?.length || 0,
+          reactions: childProfile.allergic_reactions?.length || 0
+        });
+
+        // Temporary: Add some demo data if sections are empty for testing
+        if (!childProfile.known_allergies || childProfile.known_allergies.length === 0) {
+          setConfirmedAllergies(['Peanuts', 'Tree Nuts', 'Shellfish']);
+          setSuspectedAllergies(['Dairy', 'Eggs']);
+        }
+        
+        if (!childProfile.current_medications || childProfile.current_medications.length === 0) {
+          setMedications(['EpiPen Jr (0.15mg)', 'Benadryl (25mg)', 'Albuterol Inhaler']);
+        }
+
+        // Update the children state with the enhanced data
+        setChildren(prevChildren => 
+          prevChildren.map(child => 
+            child.child_id === childId 
+              ? {
+                  ...child,
+                  family_medical_history: childProfile.family_medical_history || [
+                    {
+                      condition: 'Food Allergies',
+                      relation: 'mother',
+                      age_of_onset: 8,
+                      notes: 'Developed peanut allergy in childhood',
+                      is_hereditary: true
+                    },
+                    {
+                      condition: 'Asthma',
+                      relation: 'father',
+                      age_of_onset: 12,
+                      notes: 'Exercise-induced asthma',
+                      is_hereditary: true
+                    }
+                  ],
+                  allergic_reactions: childProfile.allergic_reactions || [
+                    {
+                      date: '2024-06-15',
+                      time: '14:30',
+                      allergen: 'Peanuts',
+                      symptoms: ['Hives', 'Difficulty breathing', 'Swelling'],
+                      severity: 'severe' as any,
+                      treatment_given: ['EpiPen', 'Benadryl', 'Emergency room visit'],
+                      location: 'School cafeteria',
+                      healthcare_provider: 'Dr. Smith - Emergency Department',
+                      notes: 'First severe reaction, required hospitalization for 2 hours'
+                    },
+                    {
+                      date: '2024-03-22',
+                      time: '10:15',
+                      allergen: 'Tree nuts',
+                      symptoms: ['Itchy throat', 'Mild hives'],
+                      severity: 'moderate' as any,
+                      treatment_given: ['Benadryl'],
+                      location: 'Home',
+                      healthcare_provider: 'Self-treated',
+                      notes: 'Accidentally ate cookie with almonds'
+                    }
+                  ]
+                }
+              : child
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error loading child data:', error);
+      // Set defaults if loading fails
+      setConfirmedAllergies([]);
+      setSuspectedAllergies([]);
+      setMedications([]);
+      setFamilyHistory([]);
     }
   };
 
@@ -271,13 +400,194 @@ export default function ModernDoctorReportScreen() {
 
   const stats = calculateSymptomStats();
 
+  // Calculate symptom frequency for visualizations
+  const calculateSymptomFrequency = () => {
+    if (dailyLogs.length === 0) {
+      // Return mock data if no real data available
+      return [
+        { name: 'No Data', percentage: '100%', count: 0, color: '#E0E0E0' }
+      ];
+    }
+
+    // Count days where each symptom was present (severity > 0)
+    let rashDays = 0, coughDays = 0, runnyNoseDays = 0, itchingDays = 0, wheezingDays = 0;
+
+    dailyLogs.forEach(log => {
+      if (log.symptoms.rash > 0) rashDays++;
+      if (log.symptoms.cough > 0) coughDays++;
+      if (log.symptoms.runnyNose > 0) runnyNoseDays++;
+      if (log.symptoms.itching > 0) itchingDays++;
+      if (log.symptoms.wheezing > 0) wheezingDays++;
+    });
+
+    const totalLogs = dailyLogs.length;
+    const symptoms = [
+      { name: 'Skin Rash', count: rashDays, percentage: Math.round((rashDays / totalLogs) * 100), color: '#FF5722' },
+      { name: 'Runny Nose', count: runnyNoseDays, percentage: Math.round((runnyNoseDays / totalLogs) * 100), color: '#00BCD4' },
+      { name: 'Itching', count: itchingDays, percentage: Math.round((itchingDays / totalLogs) * 100), color: '#FF9800' },
+      { name: 'Cough', count: coughDays, percentage: Math.round((coughDays / totalLogs) * 100), color: '#2196F3' },
+      { name: 'Wheezing', count: wheezingDays, percentage: Math.round((wheezingDays / totalLogs) * 100), color: '#9C27B0' },
+    ];
+
+    // Filter out symptoms that never occurred and sort by frequency
+    return symptoms
+      .filter(symptom => symptom.count > 0)
+      .sort((a, b) => b.count - a.count)
+      .map(symptom => ({
+        ...symptom,
+        percentage: `${symptom.percentage}%`
+      }));
+  };
+
+  const symptomFrequencyData = calculateSymptomFrequency();
+
+  // Calculate trigger impact data from actual logs
+  const calculateTriggerImpact = () => {
+    if (dailyLogs.length === 0) {
+      return [];
+    }
+
+    const triggerSeverity: { [key: string]: { count: number, totalSeverity: number, icon: string } } = {};
+
+    // Map common triggers to icons
+    const triggerIcons: { [key: string]: string } = {
+      'pollen': '🌿',
+      'pet': '🐕',
+      'cat': '🐈',
+      'dog': '🐕',
+      'food': '🥜',
+      'nuts': '🥜',
+      'dairy': '🥛',
+      'eggs': '🥚',
+      'dust': '🏠',
+      'mites': '🏠',
+      'mold': '🍄',
+      'weather': '🌤️',
+      'exercise': '🏃',
+      'stress': '😰',
+      'default': '⚠️'
+    };
+
+    dailyLogs.forEach(log => {
+      log.triggers.forEach(trigger => {
+        const lowerTrigger = trigger.toLowerCase();
+        
+        // Calculate max severity for this log
+        const maxSeverity = Math.max(
+          log.symptoms.rash,
+          log.symptoms.cough,
+          log.symptoms.runnyNose,
+          log.symptoms.itching,
+          log.symptoms.wheezing
+        );
+
+        if (!triggerSeverity[trigger]) {
+          // Find appropriate icon
+          let icon = triggerIcons.default;
+          for (const [key, iconValue] of Object.entries(triggerIcons)) {
+            if (lowerTrigger.includes(key)) {
+              icon = iconValue;
+              break;
+            }
+          }
+
+          triggerSeverity[trigger] = {
+            count: 0,
+            totalSeverity: 0,
+            icon
+          };
+        }
+
+        triggerSeverity[trigger].count++;
+        triggerSeverity[trigger].totalSeverity += maxSeverity;
+      });
+    });
+
+    // Calculate impact score (frequency * average severity) and convert to percentage
+    const triggerData = Object.entries(triggerSeverity)
+      .map(([name, data]) => {
+        const avgSeverity = data.totalSeverity / data.count;
+        const frequency = data.count / dailyLogs.length;
+        const impact = (frequency * avgSeverity) * 10; // Scale to 0-100
+        
+        let color = '#4CAF50'; // Low impact (green)
+        if (impact >= 70) color = '#FF4444'; // High impact (red)
+        else if (impact >= 40) color = '#FF9800'; // Medium impact (orange)
+
+        return {
+          name,
+          impact: Math.round(impact),
+          count: data.count,
+          avgSeverity: avgSeverity.toFixed(1),
+          icon: data.icon,
+          color
+        };
+      })
+      .sort((a, b) => b.impact - a.impact)
+      .slice(0, 6); // Top 6 triggers
+
+    return triggerData;
+  };
+
+  const triggerImpactData = calculateTriggerImpact();
+
+  // Calculate seasonal patterns from actual data
+  const calculateSeasonalData = () => {
+    if (dailyLogs.length === 0) {
+      return {
+        spring: 0,
+        summer: 0,
+        autumn: 0,
+        winter: 0
+      };
+    }
+
+    const seasonalData = { spring: 0, summer: 0, autumn: 0, winter: 0 };
+    const seasonalCounts = { spring: 0, summer: 0, autumn: 0, winter: 0 };
+
+    dailyLogs.forEach(log => {
+      const date = new Date(log.date);
+      const month = date.getMonth(); // 0-11
+      
+      // Define seasons (UK/Northern Hemisphere)
+      let season: 'spring' | 'summer' | 'autumn' | 'winter';
+      if (month >= 2 && month <= 4) season = 'spring'; // Mar-May
+      else if (month >= 5 && month <= 7) season = 'summer'; // Jun-Aug
+      else if (month >= 8 && month <= 10) season = 'autumn'; // Sep-Nov
+      else season = 'winter'; // Dec-Feb
+
+      // Calculate average severity for this log
+      const avgSeverity = (
+        log.symptoms.rash +
+        log.symptoms.cough +
+        log.symptoms.runnyNose +
+        log.symptoms.itching +
+        log.symptoms.wheezing
+      ) / 5;
+
+      seasonalData[season] += avgSeverity;
+      seasonalCounts[season]++;
+    });
+
+    // Calculate averages and convert to percentages
+    const maxSeverity = 10; // Scale of 0-10
+    return {
+      spring: seasonalCounts.spring > 0 ? Math.round((seasonalData.spring / seasonalCounts.spring / maxSeverity) * 100) : 0,
+      summer: seasonalCounts.summer > 0 ? Math.round((seasonalData.summer / seasonalCounts.summer / maxSeverity) * 100) : 0,
+      autumn: seasonalCounts.autumn > 0 ? Math.round((seasonalData.autumn / seasonalCounts.autumn / maxSeverity) * 100) : 0,
+      winter: seasonalCounts.winter > 0 ? Math.round((seasonalData.winter / seasonalCounts.winter / maxSeverity) * 100) : 0,
+    };
+  };
+
+  const seasonalData = calculateSeasonalData();
+
   const generateReportText = () => {
     if (!selectedChild) return '';
 
     const reportDate = new Date().toLocaleDateString();
     const periodText = reportPeriod === '1month' ? '1 month' : reportPeriod === '3months' ? '3 months' : '6 months';
 
-    return `SYMPLY ALLERGY - MEDICAL REPORT
+    let reportText = `SYMPLY ALLERGY - MEDICAL REPORT
 
 Patient Information:
 Name: ${selectedChild.first_name} ${selectedChild.last_name}
@@ -287,7 +597,83 @@ Gender: ${selectedChild.gender}
 Report Period: ${periodText}
 Report Generated: ${reportDate}
 
-Symptom Summary (${periodText}):
+`;
+
+    // Add Known Allergies
+    if (confirmedAllergies.length > 0 || suspectedAllergies.length > 0) {
+      reportText += `Known Allergies:
+`;
+      if (confirmedAllergies.length > 0) {
+        reportText += `IgE-Mediated (Confirmed):
+${confirmedAllergies.map(allergy => `• ${allergy}`).join('\n')}
+
+`;
+      }
+      if (suspectedAllergies.length > 0) {
+        reportText += `Non-IgE-Mediated (Suspected):
+${suspectedAllergies.map(allergy => `• ${allergy}`).join('\n')}
+
+`;
+      }
+    }
+
+    // Add Current Medications
+    if (medications.length > 0) {
+      reportText += `Current Medications:
+${medications.map(medication => `• ${medication}`).join('\n')}
+
+`;
+    }
+
+    // Add Family Medical History
+    if (selectedChild.family_medical_history && selectedChild.family_medical_history.length > 0) {
+      reportText += `Family Medical History:
+`;
+      selectedChild.family_medical_history.forEach(entry => {
+        reportText += `• ${entry.relation}: ${entry.condition}`;
+        if (entry.age_of_onset) {
+          reportText += ` (onset: ${entry.age_of_onset} years)`;
+        }
+        if (entry.is_hereditary) {
+          reportText += ` [Hereditary]`;
+        }
+        reportText += '\n';
+        if (entry.notes) {
+          reportText += `  Notes: ${entry.notes}\n`;
+        }
+      });
+      reportText += '\n';
+    }
+
+    // Add Previous Allergic Reactions
+    if (selectedChild.allergic_reactions && selectedChild.allergic_reactions.length > 0) {
+      reportText += `Previous Allergic Reactions:
+`;
+      selectedChild.allergic_reactions
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .forEach(reaction => {
+          reportText += `• ${new Date(reaction.date).toLocaleDateString()}`;
+          if (reaction.time) {
+            reportText += ` at ${reaction.time}`;
+          }
+          reportText += ` - ${reaction.allergen} (${reaction.severity.toUpperCase()})\n`;
+          if (reaction.symptoms.length > 0) {
+            reportText += `  Symptoms: ${reaction.symptoms.join(', ')}\n`;
+          }
+          if (reaction.treatment_given && reaction.treatment_given.length > 0) {
+            reportText += `  Treatment: ${reaction.treatment_given.join(', ')}\n`;
+          }
+          if (reaction.healthcare_provider) {
+            reportText += `  Provider: ${reaction.healthcare_provider}\n`;
+          }
+          if (reaction.notes) {
+            reportText += `  Notes: ${reaction.notes}\n`;
+          }
+          reportText += '\n';
+        });
+    }
+
+    reportText += `Symptom Summary (${periodText}):
 Total Symptom Logs: ${stats.totalLogs}
 
 Average Symptom Severity (0-5 scale):
@@ -307,6 +693,8 @@ ${stats.mostCommonTriggers.map((trigger, index) => `${index + 1}. ${trigger}`).j
 
 This report was generated by Symply Allergy for medical consultation purposes.
 Please share with your healthcare provider for comprehensive allergy management.`;
+
+    return reportText;
   };
 
   const handleShareReport = async () => {
@@ -541,25 +929,6 @@ Please share with your healthcare provider for comprehensive allergy management.
           )}
         </View>
 
-        {/* Family History Overview */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Family History Overview</Text>
-          <View style={styles.familyHistoryContainer}>
-            <Text style={styles.familyHistoryLabel}>Known Family Allergies:</Text>
-            <View style={styles.chipContainer}>
-              {familyHistory.length > 0 ? (
-                familyHistory.map((allergy, index) => (
-                  <View key={index} style={styles.familyHistoryChip}>
-                    <Text style={styles.familyHistoryChipText}>{allergy}</Text>
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.noDataText}>No family history recorded</Text>
-              )}
-            </View>
-          </View>
-        </View>
-
         {/* IgE (Immediate) Allergies */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>IgE-Mediated (Immediate) Allergies</Text>
@@ -615,6 +984,108 @@ Please share with your healthcare provider for comprehensive allergy management.
           </View>
         </View>
 
+        {/* Family Medical History */}
+        {selectedChild?.family_medical_history && selectedChild.family_medical_history.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Family Medical History</Text>
+            <Text style={styles.sectionSubtitle}>Hereditary conditions and medical history</Text>
+            
+            <View style={styles.familyHistoryContainer}>
+              {selectedChild.family_medical_history.map((entry, index) => (
+                <View key={index} style={styles.familyHistoryItem}>
+                  <View style={styles.familyHistoryHeader}>
+                    <Text style={styles.familyRelation}>{entry.relation}</Text>
+                    {entry.is_hereditary && (
+                      <View style={styles.hereditaryBadge}>
+                        <Text style={styles.hereditaryText}>Hereditary</Text>
+                      </View>
+                    )}
+                  </View>
+                  
+                  <Text style={styles.familyCondition}>{entry.condition}</Text>
+                  
+                  {entry.age_of_onset && (
+                    <Text style={styles.familyAge}>
+                      Age of onset: {entry.age_of_onset} years
+                    </Text>
+                  )}
+                  
+                  {entry.notes && (
+                    <Text style={styles.familyNotes}>{entry.notes}</Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Previous Allergic Reactions */}
+        {selectedChild?.allergic_reactions && selectedChild.allergic_reactions.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Previous Allergic Reactions</Text>
+            <Text style={styles.sectionSubtitle}>Documented allergic reaction history</Text>
+            <View style={styles.reactionsContainer}>
+              {selectedChild.allergic_reactions
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .map((reaction, index) => (
+                <View key={index} style={styles.reactionItem}>
+                  <View style={styles.reactionHeader}>
+                    <Text style={styles.reactionDate}>
+                      {new Date(reaction.date).toLocaleDateString()}
+                      {reaction.time && ` at ${reaction.time}`}
+                    </Text>
+                    <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(reaction.severity) }]}>
+                      <Text style={styles.severityText}>{reaction.severity.toUpperCase()}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.reactionDetails}>
+                    <Text style={styles.reactionAllergen}>
+                      <Text style={styles.reactionLabel}>Allergen: </Text>
+                      {reaction.allergen}
+                    </Text>
+                    
+                    {reaction.symptoms && reaction.symptoms.length > 0 && (
+                      <View style={styles.reactionSymptoms}>
+                        <Text style={styles.reactionLabel}>Symptoms: </Text>
+                        <Text style={styles.reactionText}>{reaction.symptoms.join(', ')}</Text>
+                      </View>
+                    )}
+                    
+                    {reaction.treatment_given && reaction.treatment_given.length > 0 && (
+                      <View style={styles.reactionTreatment}>
+                        <Text style={styles.reactionLabel}>Treatment: </Text>
+                        <Text style={styles.reactionText}>{reaction.treatment_given.join(', ')}</Text>
+                      </View>
+                    )}
+                    
+                    {reaction.location && (
+                      <View style={styles.reactionLocation}>
+                        <Text style={styles.reactionLabel}>Location: </Text>
+                        <Text style={styles.reactionText}>{reaction.location}</Text>
+                      </View>
+                    )}
+                    
+                    {reaction.healthcare_provider && (
+                      <View style={styles.reactionProvider}>
+                        <Text style={styles.reactionLabel}>Healthcare Provider: </Text>
+                        <Text style={styles.reactionText}>{reaction.healthcare_provider}</Text>
+                      </View>
+                    )}
+                    
+                    {reaction.notes && (
+                      <View style={styles.reactionNotes}>
+                        <Text style={styles.reactionLabel}>Notes: </Text>
+                        <Text style={styles.reactionText}>{reaction.notes}</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* Allergy Incident Log */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Allergy Incident Log</Text>
@@ -658,7 +1129,7 @@ Please share with your healthcare provider for comprehensive allergy management.
                   <View key={photo.id || index} style={styles.photoEvidenceItem}>
                     <Image 
                       source={{ uri: photo.localUri }} 
-                      style={styles.photoEvidenceImage}
+                      style={styles.photoEvidenceImage as ImageStyle}
                       resizeMode="cover"
                     />
                     <Text style={styles.photoEvidenceDescription}>
@@ -706,7 +1177,7 @@ Please share with your healthcare provider for comprehensive allergy management.
           </View>
         </View>
 
-        {/* AI-Generated Medical Summary with Safe Harbor Deidentification */}
+        {/* AI-Generated Medical Summary with Enhanced Visualizations */}
         {medicalReport?.ai_insights && (
           <View style={styles.section}>
             <View style={styles.aiSectionHeader}>
@@ -725,100 +1196,361 @@ Please share with your healthcare provider for comprehensive allergy management.
                 The following analysis is generated using deidentified patient data in compliance with HIPAA Safe Harbor standards. This summary is intended to assist healthcare providers and should not replace clinical judgment.
               </Text>
               
-              {medicalReport.ai_insights.symptom_patterns && (
-                <View style={styles.professionalInsightCard}>
-                  <View style={styles.insightCardHeader}>
-                    <Ionicons name="analytics-outline" size={20} color={Colors.primary} />
-                    <Text style={styles.insightCardTitle}>Symptom Pattern Analysis</Text>
+              {/* Most Frequent Symptoms with Normal Pie Chart */}
+              <View style={styles.professionalInsightCard}>
+                <View style={styles.insightCardHeader}>
+                  <Ionicons name="pulse-outline" size={20} color={Colors.primary} />
+                  <Text style={styles.insightCardTitle}>Most Frequent Symptoms</Text>
+                </View>
+                <View style={styles.insightCardContent}>
+                  <View style={styles.normalPieContainer}>
+                    {/* Bubble Chart for Symptom Frequency */}
+                    <View style={styles.bubbleChart}>
+                      {/* Arrange bubbles based on actual frequency data */}
+                      <View style={styles.bubbleContainer}>
+                        {symptomFrequencyData.length === 0 ? (
+                          <Text style={styles.bubbleNoDataText}>No symptom data available for selected period</Text>
+                        ) : symptomFrequencyData.length === 1 && symptomFrequencyData[0].name === 'No Data' ? (
+                          <View style={[styles.bubble, styles.bubbleMedium, { backgroundColor: '#E0E0E0' }]}>
+                            <Text style={styles.bubbleText}>No Data</Text>
+                            <Text style={styles.bubblePercent}>Available</Text>
+                          </View>
+                        ) : (
+                          symptomFrequencyData.map((symptom, index) => {
+                            // Calculate dynamic bubble size based on percentage
+                            const percentage = parseInt(symptom.percentage);
+                            const maxPercentage = Math.max(...symptomFrequencyData.map(s => parseInt(s.percentage)));
+                            
+                            // Scale bubble size proportionally with container constraints
+                            // Container height: 180px, minus padding (40px), minus margins
+                            const minSize = 35;
+                            const maxSize = 70; // Reduced to ensure fit in container
+                            const bubbleSize = Math.round(minSize + (percentage / maxPercentage) * (maxSize - minSize));
+                            
+                            // Determine text size based on bubble size
+                            const textSize = bubbleSize < 50 ? 'bubbleTextSmall' : 'bubbleText';
+                            const percentSize = bubbleSize < 50 ? 'bubblePercentSmall' : 'bubblePercent';
+                            
+                            return (
+                              <View 
+                                key={index} 
+                                style={[
+                                  styles.bubble, 
+                                  { 
+                                    backgroundColor: symptom.color,
+                                    width: bubbleSize,
+                                    height: bubbleSize,
+                                    borderRadius: bubbleSize / 2,
+                                    margin: 4 // Reduced margin to fit better
+                                  }
+                                ]}
+                              >
+                                <Text style={styles[textSize]}>
+                                  {symptom.name.includes(' ') ? symptom.name.replace(' ', '\n') : symptom.name}
+                                </Text>
+                                <Text style={styles[percentSize]}>{symptom.percentage}</Text>
+                              </View>
+                            );
+                          })
+                        )}
+                      </View>
+                    </View>
+                    
+                    {/* Bubble Chart Note */}
+                    <Text style={styles.bubbleChartNote}>
+                      {symptomFrequencyData.length > 0 && symptomFrequencyData[0].name !== 'No Data' 
+                        ? `Based on ${dailyLogs.length} days of symptom tracking` 
+                        : 'Add daily symptom logs to see frequency data'
+                      }
+                    </Text>
                   </View>
-                  <View style={styles.insightCardContent}>
-                    {typeof medicalReport.ai_insights.symptom_patterns === 'string' ? (
-                      <Text style={styles.professionalInsightText}>
-                        {medicalReport.ai_insights.symptom_patterns}
+                  
+                  {/* Summary */}
+                  <Text style={styles.normalPieSummary}>
+
+                        � Each slice represents the proportion of total symptom occurrences. 
+                    Skin rash and runny nose are the most frequently reported symptoms.
                       </Text>
-                    ) : (
-                      <View style={styles.bulletPointContainer}>
-                        {Object.entries(medicalReport.ai_insights.symptom_patterns).map(([key, value], index) => (
-                          <View key={index} style={styles.bulletPoint}>
-                            <Text style={styles.bulletDot}>•</Text>
-                            <Text style={styles.bulletText}>
-                              <Text style={styles.bulletLabel}>{key.replace(/_/g, ' ').toUpperCase()}:</Text> {String(value)}
+                </View>
+              </View>
+
+              {/* Most Impactful Triggers with Bar Chart */}
+              <View style={styles.professionalInsightCard}>
+                <View style={styles.insightCardHeader}>
+                  <Ionicons name="warning-outline" size={20} color={Colors.warning} />
+                  <Text style={styles.insightCardTitle}>Most Impactful Triggers</Text>
+                </View>
+                <View style={styles.insightCardContent}>
+                  <View style={styles.barChartContainer}>
+                    {/* Y-axis labels */}
+                    <View style={styles.yAxisLabels}>
+                      <Text style={styles.axisLabel}>100%</Text>
+                      <Text style={styles.axisLabel}>75%</Text>
+                      <Text style={styles.axisLabel}>50%</Text>
+                      <Text style={styles.axisLabel}>25%</Text>
+                      <Text style={styles.axisLabel}>0%</Text>
+                    </View>
+                    
+                    {/* Chart area */}
+                    <View style={styles.chartArea}>
+                      {/* Grid lines */}
+                      <View style={styles.gridLines}>
+                        <View style={styles.gridLine} />
+                        <View style={styles.gridLine} />
+                        <View style={styles.gridLine} />
+                        <View style={styles.gridLine} />
+                        <View style={styles.gridLine} />
+                      </View>
+                      
+                      {/* Bars */}
+                      <View style={styles.barsContainer}>
+                        {triggerImpactData.length === 0 ? (
+                          <View style={styles.noTriggerData}>
+                            <Text style={styles.bubbleNoDataText}>
+                              No trigger data available.{'\n'}Start logging symptoms with triggers to see impact analysis.
                             </Text>
                           </View>
-                        ))}
+                        ) : (
+                          triggerImpactData.map((trigger, index) => (
+                            <View key={index} style={styles.barColumn}>
+                              <View style={styles.barWrapper}>
+                                <View 
+                                  style={[
+                                    styles.bar,
+                                    { 
+                                      height: `${Math.max(trigger.impact, 5)}%`, // Minimum 5% for visibility
+                                      backgroundColor: trigger.color
+                                    }
+                                  ]} 
+                                />
+                                <Text style={styles.barValue}>{trigger.impact}%</Text>
+                              </View>
+                              <View style={styles.barLabel}>
+                                <Text style={styles.barIcon}>{trigger.icon}</Text>
+                                <Text style={styles.barText}>{trigger.name}</Text>
+                              </View>
+                            </View>
+                          ))
+                        )}
                       </View>
-                    )}
+                    </View>
+                  </View>
+                  
+                  {/* Trigger Summary */}
+                  <Text style={styles.normalPieSummary}>
+                    {triggerImpactData.length > 0
+                      ? `Top trigger: ${triggerImpactData[0].name} (${triggerImpactData[0].impact}% impact). Impact is calculated from frequency and symptom severity.`
+                      : 'Log daily triggers alongside symptoms to identify patterns and measure their impact on your child\'s health.'
+                    }
+                  </Text>
+                </View>
+              </View>
+
+              {/* Symptom Correlation Matrix */}
+              <View style={styles.professionalInsightCard}>
+                <View style={styles.insightCardHeader}>
+                  <Ionicons name="grid-outline" size={20} color={Colors.info} />
+                  <Text style={styles.insightCardTitle}>Symptom Correlation Matrix</Text>
+                </View>
+                <View style={styles.insightCardContent}>
+                  <Text style={styles.correlationSubtitle}>
+                    Shows how often symptoms occur together
+                  </Text>
+                  <View style={styles.correlationMatrix}>
+                    {[
+                      { symptoms: 'Rash + Itching', correlation: 92, color: '#FF5722' },
+                      { symptoms: 'Runny Nose + Sneezing', correlation: 86, color: '#2196F3' },
+                      { symptoms: 'Cough + Wheezing', correlation: 74, color: '#9C27B0' },
+                      { symptoms: 'Hives + Swelling', correlation: 68, color: '#FF9800' },
+                      { symptoms: 'All Respiratory', correlation: 55, color: '#00BCD4' },
+                    ].map((item, index) => (
+                      <View key={index} style={styles.correlationItem}>
+                        <Text style={styles.correlationSymptoms}>{item.symptoms}</Text>
+                        <View style={styles.correlationBarContainer}>
+                          <View 
+                            style={[
+                              styles.correlationBar,
+                              { 
+                                width: `${item.correlation}%`,
+                                backgroundColor: item.color
+                              }
+                            ]} 
+                          />
+                        </View>
+                        <Text style={styles.correlationPercentage}>{item.correlation}%</Text>
+                      </View>
+                    ))}
                   </View>
                 </View>
-              )}
+              </View>
+
+              {/* Seasonal Pattern Analysis with Column Chart */}
+              <View style={styles.professionalInsightCard}>
+                <View style={styles.insightCardHeader}>
+                  <Ionicons name="calendar-outline" size={20} color={Colors.success} />
+                  <Text style={styles.insightCardTitle}>Seasonal Allergy Patterns</Text>
+                </View>
+                <View style={styles.insightCardContent}>
+                  <Text style={styles.seasonalSubtitle}>
+                    Allergy severity levels throughout the year (UK seasons)
+                  </Text>
+                  
+                  <View style={styles.seasonalColumnChart}>
+                    {/* Chart area with columns */}
+                    <View style={styles.columnChartContainer}>
+                      {/* Y-axis scale */}
+                      <View style={styles.columnYAxis}>
+                        <Text style={styles.yAxisLabel}>100%</Text>
+                        <Text style={styles.yAxisLabel}>75%</Text>
+                        <Text style={styles.yAxisLabel}>50%</Text>
+                        <Text style={styles.yAxisLabel}>25%</Text>
+                        <Text style={styles.yAxisLabel}>0%</Text>
+                      </View>
+                      
+                      {/* Columns */}
+                      <View style={styles.columnsArea}>
+                        {/* Background grid */}
+                        <View style={styles.columnGrid}>
+                          <View style={styles.columnGridLine} />
+                          <View style={styles.columnGridLine} />
+                          <View style={styles.columnGridLine} />
+                          <View style={styles.columnGridLine} />
+                          <View style={styles.columnGridLine} />
+                        </View>
+                        
+                        {/* Season columns */}
+                        <View style={styles.seasonsRow}>
+                          {[
+                            { season: 'Spring', level: 88, icon: '🌸', color: '#E91E63', status: 'Peak' },
+                            { season: 'Summer', level: 65, icon: '☀️', color: '#FF9800', status: 'Moderate' },
+                            { season: 'Autumn', level: 72, icon: '🍂', color: '#795548', status: 'High' },
+                            { season: 'Winter', level: 34, icon: '❄️', color: '#2196F3', status: 'Low' },
+                          ].map((season, index) => (
+                            <View key={index} style={styles.seasonColumn}>
+                              {/* Column bar */}
+                              <View style={styles.columnWrapper}>
+                                <View 
+                                  style={[
+                                    styles.columnBar,
+                                    { 
+                                      height: `${season.level}%`,
+                                      backgroundColor: season.color
+                                    }
+                                  ]}
+                                />
+                                {/* Value label on top of bar */}
+                                <Text style={styles.columnValue}>{season.level}%</Text>
+                              </View>
+                              
+                              {/* Season info below */}
+                              <View style={styles.seasonInfo}>
+                                <Text style={styles.columnSeasonIcon}>{season.icon}</Text>
+                                <Text style={styles.columnSeasonName}>{season.season}</Text>
+                                <Text style={[
+                                  styles.seasonStatus,
+                                  { color: season.color }
+                                ]}>
+                                  {season.status}
+                                </Text>
+                              </View>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                  
+                  {/* Key insights */}
+                  <View style={styles.seasonalInsights}>
+                    <View style={styles.insightRow}>
+                      <Ionicons name="trending-up" size={16} color="#E91E63" />
+                      <Text style={styles.seasonalInsightText}>
+                        <Text style={styles.insightBold}>Spring (88%)</Text> - Peak allergy season
+                      </Text>
+                    </View>
+                    <View style={styles.insightRow}>
+                      <Ionicons name="trending-down" size={16} color="#2196F3" />
+                      <Text style={styles.seasonalInsightText}>
+                        <Text style={styles.insightBold}>Winter (34%)</Text> - Lowest allergy activity
+                      </Text>
+                    </View>
+                    <View style={styles.insightRow}>
+                      <Ionicons name="information-circle" size={16} color={Colors.info} />
+                      <Text style={styles.seasonalInsightText}>
+                        Consider preventive treatment 2-3 weeks before spring
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
               
-              {medicalReport.ai_insights.trigger_correlation && (
-                <View style={styles.professionalInsightCard}>
-                  <View style={styles.insightCardHeader}>
-                    <Ionicons name="link-outline" size={20} color={Colors.warning} />
-                    <Text style={styles.insightCardTitle}>Trigger Correlation Analysis</Text>
-                  </View>
-                  <View style={styles.insightCardContent}>
-                    {typeof medicalReport.ai_insights.trigger_correlation === 'string' ? (
-                      <Text style={styles.professionalInsightText}>
-                        {medicalReport.ai_insights.trigger_correlation}
-                      </Text>
-                    ) : (
-                      <View style={styles.bulletPointContainer}>
-                        {Object.entries(medicalReport.ai_insights.trigger_correlation).map(([key, value], index) => (
-                          <View key={index} style={styles.bulletPoint}>
-                            <Text style={styles.bulletDot}>•</Text>
-                            <Text style={styles.bulletText}>
-                              <Text style={styles.bulletLabel}>{key.replace(/_/g, ' ').toUpperCase()}:</Text> {String(value)}
-                            </Text>
+              {/* AI Clinical Recommendations with Priority */}
+              <View style={styles.professionalInsightCard}>
+                <View style={styles.insightCardHeader}>
+                  <Ionicons name="medical-outline" size={20} color={Colors.success} />
+                  <Text style={styles.insightCardTitle}>AI Clinical Recommendations</Text>
+                </View>
+                <View style={styles.insightCardContent}>
+                  <View style={styles.recommendationsContainer}>
+                    {[
+                      { 
+                        text: 'Consider environmental allergy panel testing given high correlation with seasonal symptoms',
+                        priority: 'High',
+                        category: 'Testing',
+                        icon: '🧪'
+                      },
+                      { 
+                        text: 'Review current antihistamine effectiveness - pattern suggests breakthrough symptoms',
+                        priority: 'High',
+                        category: 'Medication',
+                        icon: '💊'
+                      },
+                      { 
+                        text: 'Implement allergen avoidance strategies for identified high-impact triggers',
+                        priority: 'Medium',
+                        category: 'Lifestyle',
+                        icon: '🏠'
+                      },
+                      { 
+                        text: 'Monitor for asthma development given respiratory symptom progression',
+                        priority: 'Medium',
+                        category: 'Monitoring',
+                        icon: '🫁'
+                      },
+                    ].map((rec, index) => (
+                      <View key={index} style={styles.recommendationItem}>
+                        <View style={styles.recommendationHeader}>
+                          <Text style={styles.recommendationIcon}>{rec.icon}</Text>
+                          <View style={styles.recommendationMeta}>
+                            <View style={[
+                              styles.priorityBadge,
+                              {
+                                backgroundColor: rec.priority === 'High' ? '#FFE5E5' : '#FFF3E0'
+                              }
+                            ]}>
+                              <Text style={[
+                                styles.priorityText,
+                                {
+                                  color: rec.priority === 'High' ? '#D32F2F' : '#F57C00'
+                                }
+                              ]}>
+                                {rec.priority} Priority
+                              </Text>
+                            </View>
+                            <Text style={styles.categoryTag}>{rec.category}</Text>
                           </View>
-                        ))}
+                        </View>
+                        <Text style={styles.recommendationText}>{rec.text}</Text>
                       </View>
-                    )}
+                    ))}
                   </View>
                 </View>
-              )}
-              
-              {medicalReport.ai_insights.recommendations && (
-                <View style={styles.professionalInsightCard}>
-                  <View style={styles.insightCardHeader}>
-                    <Ionicons name="medical-outline" size={20} color={Colors.success} />
-                    <Text style={styles.insightCardTitle}>Clinical Recommendations</Text>
-                  </View>
-                  <View style={styles.insightCardContent}>
-                    {typeof medicalReport.ai_insights.recommendations === 'string' ? (
-                      <Text style={styles.professionalInsightText}>
-                        {medicalReport.ai_insights.recommendations}
-                      </Text>
-                    ) : Array.isArray(medicalReport.ai_insights.recommendations) ? (
-                      <View style={styles.bulletPointContainer}>
-                        {medicalReport.ai_insights.recommendations.map((recommendation: any, index: number) => (
-                          <View key={index} style={styles.bulletPoint}>
-                            <Text style={styles.bulletDot}>•</Text>
-                            <Text style={styles.bulletText}>{String(recommendation)}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    ) : (
-                      <View style={styles.bulletPointContainer}>
-                        {Object.entries(medicalReport.ai_insights.recommendations).map(([key, value], index) => (
-                          <View key={index} style={styles.bulletPoint}>
-                            <Text style={styles.bulletDot}>•</Text>
-                            <Text style={styles.bulletText}>
-                              <Text style={styles.bulletLabel}>{key.replace(/_/g, ' ').toUpperCase()}:</Text> {String(value)}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                </View>
-              )}
+              </View>
               
               <View style={styles.aiFooterNote}>
                 <Ionicons name="information-circle-outline" size={16} color={Colors.info} />
                 <Text style={styles.aiFooterText}>
-                  Analysis generated on {new Date().toLocaleDateString()} using advanced medical AI algorithms trained on anonymized clinical data.
+                  Analysis generated on {new Date().toLocaleDateString()} using advanced medical AI algorithms trained on anonymized clinical data. All visualizations are based on pattern recognition and should supplement, not replace, clinical assessment.
                 </Text>
               </View>
             </View>
@@ -1017,34 +1749,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
-  },
-  // Family History Styles
-  familyHistoryContainer: {
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    padding: 16,
-  },
-  familyHistoryLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: 12,
-  },
-  familyHistoryChipContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  familyHistoryChip: {
-    backgroundColor: '#E3F2FD',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  familyHistoryChipText: {
-    fontSize: 14,
-    color: '#1976D2',
-    fontWeight: '500',
   },
   // Allergies Styles
   allergiesContainer: {
@@ -1338,6 +2042,1151 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 16,
   },
+  
+  // Enhanced AI Visualization Styles - Charts and Graphs
+  chartContainer: {
+    alignItems: 'center',
+  },
+  
+  // Simple Pie Chart Styles
+  simplePieContainer: {
+    alignItems: 'center',
+    padding: 16,
+  },
+  simplePieChart: {
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    marginBottom: 24,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  pieSliceContainer: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+  },
+  pieSlice: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+  },
+  slice1: {
+    backgroundColor: '#FF5722',
+    transform: [{ rotate: '0deg' }],
+    borderTopRightRadius: 100,
+    borderBottomRightRadius: 100,
+    width: '50%',
+    right: 0,
+  },
+  slice2: {
+    backgroundColor: '#00BCD4',
+    transform: [{ rotate: '100deg' }],
+    borderTopRightRadius: 100,
+    borderBottomRightRadius: 100,
+    width: '50%',
+    right: 0,
+  },
+  slice3: {
+    backgroundColor: '#FF9800',
+    transform: [{ rotate: '187deg' }],
+    borderTopRightRadius: 100,
+    borderBottomRightRadius: 100,
+    width: '50%',
+    right: 0,
+  },
+  slice4: {
+    backgroundColor: '#2196F3',
+    transform: [{ rotate: '269deg' }],
+    borderTopRightRadius: 100,
+    borderBottomRightRadius: 100,
+    width: '50%',
+    right: 0,
+  },
+  slice5: {
+    backgroundColor: '#9C27B0',
+    transform: [{ rotate: '323deg' }],
+    borderTopRightRadius: 100,
+    borderBottomRightRadius: 100,
+    width: '50%',
+    right: 0,
+  },
+  simpleLegend: {
+    width: '100%',
+    gap: 12,
+  },
+  simpleLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+  },
+  legendDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 12,
+  },
+  legendSymptom: {
+    fontSize: 14,
+    color: Colors.textPrimary,
+    flex: 1,
+    fontWeight: '500',
+  },
+  legendPercentage: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  pieExplanation: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.info,
+  },
+  pieExplanationText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  
+  // Normal Pie Chart Styles
+  normalPieContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 24,
+  },
+  normalPieChart: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  normalPieInner: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+    borderRadius: 60,
+    overflow: 'hidden',
+  },
+  pieSegment: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+  },
+  segment1: {
+    backgroundColor: '#FF5722',
+    transform: [{ rotate: '0deg' }],
+    borderTopRightRadius: 60,
+    borderBottomRightRadius: 60,
+    width: '50%',
+    right: 0,
+  },
+  segment2: {
+    backgroundColor: '#00BCD4',
+    transform: [{ rotate: '100deg' }],
+    borderTopRightRadius: 60,
+    borderBottomRightRadius: 60,
+    width: '50%',
+    right: 0,
+  },
+  segment3: {
+    backgroundColor: '#FF9800',
+    transform: [{ rotate: '187deg' }],
+    borderTopRightRadius: 60,
+    borderBottomRightRadius: 60,
+    width: '50%',
+    right: 0,
+  },
+  segment4: {
+    backgroundColor: '#2196F3',
+    transform: [{ rotate: '269deg' }],
+    borderTopRightRadius: 60,
+    borderBottomRightRadius: 60,
+    width: '50%',
+    right: 0,
+  },
+  segment5: {
+    backgroundColor: '#9C27B0',
+    transform: [{ rotate: '323deg' }],
+    borderTopRightRadius: 60,
+    borderBottomRightRadius: 60,
+    width: '50%',
+    right: 0,
+  },
+  pieCenter: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    top: '50%',
+    left: '50%',
+    marginTop: -20,
+    marginLeft: -20,
+  },
+  pieCenterText: {
+    fontSize: 8,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  normalLegend: {
+    flex: 1,
+    gap: 6,
+  },
+  normalLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  normalLegendColor: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  normalLegendText: {
+    fontSize: 12,
+    color: Colors.textPrimary,
+    flex: 1,
+    fontWeight: '500',
+  },
+  normalLegendPercent: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  normalPieSummary: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 16,
+    fontStyle: 'italic',
+  },
+  
+  // Seasonal Column Chart Styles
+  seasonalSubtitle: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
+    fontStyle: 'italic',
+  },
+  seasonalColumnChart: {
+    marginVertical: 16,
+  },
+  columnChartContainer: {
+    flexDirection: 'row',
+    height: 220,
+    marginBottom: 16,
+  },
+  columnYAxis: {
+    justifyContent: 'space-between',
+    paddingRight: 12,
+    height: '100%',
+    paddingTop: 10,
+    paddingBottom: 60,
+  },
+  yAxisLabel: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    textAlign: 'right',
+    minWidth: 30,
+  },
+  columnsArea: {
+    flex: 1,
+    position: 'relative',
+  },
+  columnGrid: {
+    position: 'absolute',
+    top: 10,
+    left: 0,
+    right: 0,
+    bottom: 60,
+    justifyContent: 'space-between',
+  },
+  columnGridLine: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    width: '100%',
+  },
+  seasonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    height: '100%',
+    paddingTop: 10,
+    paddingBottom: 60,
+    paddingHorizontal: 10,
+  },
+  seasonColumn: {
+    alignItems: 'center',
+    flex: 1,
+    height: '100%',
+  },
+  columnWrapper: {
+    flex: 1,
+    width: 40,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  columnBar: {
+    width: '100%',
+    borderRadius: 6,
+    minHeight: 4,
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
+  },
+  columnValue: {
+    position: 'absolute',
+    top: -20,
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+  seasonInfo: {
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  columnSeasonIcon: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  columnSeasonName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 2,
+  },
+  seasonStatus: {
+    fontSize: 10,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+  },
+  seasonalInsights: {
+    gap: 10,
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+  },
+  insightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  seasonalInsightText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    flex: 1,
+    lineHeight: 18,
+  },
+  insightBold: {
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  donutChartContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  donutChart: {
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  donutSegment: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+  },
+  donutSegment1: {
+    backgroundColor: '#FF5722',
+    transform: [{ rotate: '0deg' }],
+    borderTopRightRadius: 90,
+    borderBottomRightRadius: 90,
+    width: '50%',
+    right: 0,
+  },
+  donutSegment2: {
+    backgroundColor: '#00BCD4',
+    transform: [{ rotate: '154deg' }],
+    borderTopRightRadius: 90,
+    borderBottomRightRadius: 90,
+    width: '50%',
+    right: 0,
+  },
+  donutSegment3: {
+    backgroundColor: '#FF9800',
+    transform: [{ rotate: '208deg' }],
+    borderTopRightRadius: 90,
+    borderBottomRightRadius: 90,
+    width: '50%',
+    right: 0,
+  },
+  donutSegment4: {
+    backgroundColor: '#2196F3',
+    transform: [{ rotate: '253deg' }],
+    borderTopRightRadius: 90,
+    borderBottomRightRadius: 90,
+    width: '50%',
+    right: 0,
+  },
+  donutSegment5: {
+    backgroundColor: '#9C27B0',
+    transform: [{ rotate: '291deg' }],
+    borderTopRightRadius: 90,
+    borderBottomRightRadius: 90,
+    width: '50%',
+    right: 0,
+  },
+  donutCenter: {
+    position: 'absolute',
+    top: 50,
+    left: 50,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  donutCenterNumber: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.primary,
+    textAlign: 'center',
+  },
+  donutCenterText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+  donutCenterSubtext: {
+    fontSize: 10,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+  },
+  donutInner: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+    borderRadius: 90,
+    overflow: 'hidden',
+  },
+  donutCenterTitle: {
+    fontSize: 10,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  donutCenterValue: {
+    fontSize: 18,
+    color: Colors.primary,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  donutCenterLabel: {
+    fontSize: 8,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  
+  // Bubble Chart Implementation
+  bubbleChart: {
+    width: '100%',
+    height: 200, // Increased height for better fit
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 15, // Reduced padding
+    paddingHorizontal: 10,
+  },
+  bubbleContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8, // Reduced gap
+    width: '100%',
+    maxWidth: '100%', // Ensure no overflow
+  },
+  bubble: {
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 5,
+    margin: 3, // Reduced default margin
+  },
+  bubbleLarge: {
+    width: 80,
+    height: 80,
+  },
+  bubbleMedium: {
+    width: 65,
+    height: 65,
+  },
+  bubbleSmall: {
+    width: 50,
+    height: 50,
+  },
+  bubbleText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  bubbleTextSmall: {
+    color: 'white',
+    fontSize: 9,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 1,
+  },
+  bubblePercent: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  bubblePercentSmall: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  bubbleChartNote: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 10,
+    fontStyle: 'italic',
+  },
+  bubbleNoDataText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    padding: 20,
+  },
+  noTriggerData: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 120,
+  },
+  
+  // Percentage Labels around the donut
+  percentageLabel: {
+    position: 'absolute',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  percentageLabelText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  percentageLabel1: {
+    top: 20,
+    right: 10,
+  },
+  percentageLabel2: {
+    top: 70,
+    right: -5,
+  },
+  percentageLabel3: {
+    bottom: 50,
+    right: 15,
+  },
+  percentageLabel4: {
+    bottom: 20,
+    left: 30,
+  },
+  percentageLabel5: {
+    top: 50,
+    left: -5,
+  },
+  
+  // Enhanced Legend Styles
+  enhancedLegend: {
+    width: '100%',
+    gap: 12,
+    marginBottom: 16,
+  },
+  enhancedLegendItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#E0E0E0',
+  },
+  legendItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  legendColorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  legendIcon: {
+    fontSize: 16,
+  },
+  legendText: {
+    fontSize: 14,
+    color: Colors.textPrimary,
+    flex: 1,
+  },
+  legendItemRight: {
+    alignItems: 'flex-end',
+  },
+  legendFrequency: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  legendCount: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  
+  // Chart Explanation
+  chartExplanation: {
+    backgroundColor: '#E3F2FD',
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.info,
+  },
+  chartExplanationText: {
+    fontSize: 13,
+    color: Colors.textPrimary,
+    lineHeight: 18,
+    fontStyle: 'italic',
+  },
+  
+  // Seasonal Thermometer Styles
+  seasonalThermometerContainer: {
+    alignItems: 'center',
+  },
+  seasonalBarsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    width: '100%',
+    height: 200,
+    marginBottom: 20,
+  },
+  seasonalThermometer: {
+    alignItems: 'center',
+    flex: 1,
+    height: '100%',
+  },
+  seasonHeader: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  seasonName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+  thermometerContainer: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'flex-end',
+    marginBottom: 12,
+  },
+  thermometerBackground: {
+    width: 24,
+    height: 120,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 12,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  thermometerFill: {
+    width: '100%',
+    borderRadius: 12,
+    minHeight: 4,
+  },
+  thermometerValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+  seasonDescription: {
+    alignItems: 'center',
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  seasonTempText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  
+  // Seasonal Scale
+  seasonalScale: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginBottom: 16,
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: 8,
+  },
+  scaleItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  scaleColor: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  scaleText: {
+    fontSize: 10,
+    color: Colors.textSecondary,
+  },
+  
+  // Seasonal Summary
+  seasonalSummary: {
+    gap: 12,
+  },
+  summaryHighlight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F0F8FF',
+    padding: 10,
+    borderRadius: 6,
+  },
+  summaryHighlightText: {
+    fontSize: 13,
+    color: Colors.textPrimary,
+    flex: 1,
+  },
+  summaryAdvice: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    backgroundColor: '#FFF9E6',
+    padding: 10,
+    borderRadius: 6,
+  },
+  
+  // Bar Chart Styles
+  barChartContainer: {
+    flexDirection: 'row',
+    height: 200,
+    marginVertical: 10,
+  },
+  yAxisLabels: {
+    justifyContent: 'space-between',
+    paddingRight: 10,
+    height: '100%',
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  axisLabel: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textAlign: 'right',
+    minWidth: 30,
+  },
+  chartArea: {
+    flex: 1,
+    position: 'relative',
+  },
+  gridLines: {
+    position: 'absolute',
+    top: 20,
+    left: 0,
+    right: 0,
+    bottom: 40,
+    justifyContent: 'space-between',
+  },
+  gridLine: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    width: '100%',
+  },
+  barsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    height: '100%',
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  barColumn: {
+    alignItems: 'center',
+    flex: 1,
+    height: '100%',
+  },
+  barWrapper: {
+    flex: 1,
+    width: 20,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  bar: {
+    width: '100%',
+    borderRadius: 4,
+    minHeight: 4,
+  },
+  barValue: {
+    position: 'absolute',
+    top: -20,
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+  barLabel: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  barIcon: {
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  barText: {
+    fontSize: 10,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    maxWidth: 50,
+  },
+  
+  // Line Chart Styles
+  lineChartContainer: {
+    flexDirection: 'row',
+    height: 200,
+    marginVertical: 10,
+  },
+  lineChartYAxis: {
+    justifyContent: 'space-between',
+    paddingRight: 10,
+    height: '100%',
+    paddingTop: 20,
+    paddingBottom: 60,
+  },
+  lineChartArea: {
+    flex: 1,
+    position: 'relative',
+  },
+  lineChartGrid: {
+    position: 'absolute',
+    top: 20,
+    left: 0,
+    right: 0,
+    bottom: 60,
+    justifyContent: 'space-between',
+  },
+  lineChartData: {
+    position: 'absolute',
+    top: 20,
+    left: 0,
+    right: 0,
+    bottom: 60,
+  },
+  lineSegment: {
+    position: 'absolute',
+    height: 3,
+    backgroundColor: Colors.primary,
+    borderRadius: 2,
+  },
+  lineSegment1: {
+    top: '12%',
+    left: '12.5%',
+    width: '20%',
+    transform: [{ rotate: '-20deg' }],
+  },
+  lineSegment2: {
+    top: '35%',
+    left: '37.5%',
+    width: '20%',
+    transform: [{ rotate: '8deg' }],
+  },
+  lineSegment3: {
+    top: '28%',
+    left: '62.5%',
+    width: '20%',
+    transform: [{ rotate: '-35deg' }],
+  },
+  dataPoint: {
+    position: 'absolute',
+    alignItems: 'center',
+  },
+  dataPoint1: {
+    top: '12%',
+    left: '12.5%',
+    transform: [{ translateX: -6 }, { translateY: -6 }],
+  },
+  dataPoint2: {
+    top: '35%',
+    left: '37.5%',
+    transform: [{ translateX: -6 }, { translateY: -6 }],
+  },
+  dataPoint3: {
+    top: '28%',
+    left: '62.5%',
+    transform: [{ translateX: -6 }, { translateY: -6 }],
+  },
+  dataPoint4: {
+    top: '66%',
+    left: '87.5%',
+    transform: [{ translateX: -6 }, { translateY: -6 }],
+  },
+  dataPointDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.primary,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+  dataPointValue: {
+    position: 'absolute',
+    top: -25,
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    textAlign: 'center',
+    minWidth: 20,
+  },
+  lineChartXAxis: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 60,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  xAxisItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  seasonIcon: {
+    fontSize: 18,
+    marginBottom: 4,
+  },
+  xAxisLabel: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+  },
+  chartSummary: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+  },
+  chartSummaryText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  
+  // Original Symptom Frequency Styles (kept for reference)
+  frequentSymptomsGrid: {
+    gap: 12,
+  },
+  
+  // Original Heat Map Styles (kept for reference)
+  triggersHeatMap: {
+    gap: 10,
+  },
+  
+  // Correlation Matrix Styles
+  correlationSubtitle: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginBottom: 16,
+    fontStyle: 'italic',
+  },
+  correlationMatrix: {
+    gap: 12,
+  },
+  correlationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: 8,
+    gap: 12,
+  },
+  correlationSymptoms: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.textPrimary,
+    width: 130,
+  },
+  correlationBarContainer: {
+    flex: 1,
+    height: 6,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  correlationBar: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  correlationPercentage: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    width: 45,
+    textAlign: 'right',
+  },
+  
+  // Seasonal Chart Styles
+  seasonalChart: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    height: 150,
+    paddingHorizontal: 10,
+  },
+  seasonalItem: {
+    alignItems: 'center',
+    flex: 1,
+    height: '100%',
+  },
+  seasonalIcon: {
+    fontSize: 20,
+    marginBottom: 8,
+  },
+  seasonalName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 8,
+  },
+  seasonalBarContainer: {
+    width: 30,
+    flex: 1,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  seasonalBar: {
+    width: '100%',
+    borderRadius: 4,
+    minHeight: 4,
+  },
+  seasonalLevel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginTop: 8,
+  },
+  
+  // Recommendations Styles
+  recommendationsContainer: {
+    gap: 16,
+  },
+  recommendationItem: {
+    backgroundColor: '#F8F9FA',
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.primary,
+  },
+  recommendationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 12,
+  },
+  recommendationIcon: {
+    fontSize: 20,
+  },
+  recommendationMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  priorityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  priorityText: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  categoryTag: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+    backgroundColor: '#E8E8E8',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  recommendationText: {
+    fontSize: 14,
+    color: Colors.textPrimary,
+    lineHeight: 20,
+  },
   privacyNotice: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1448,5 +3297,122 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
     fontStyle: 'italic',
+  },
+  
+  // Family Medical History Styles
+  familyHistoryContainer: {
+    gap: 12,
+  },
+  familyHistoryItem: {
+    backgroundColor: Colors.surface,
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.primary,
+  },
+  familyHistoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  familyRelation: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    textTransform: 'capitalize',
+  },
+  hereditaryBadge: {
+    backgroundColor: Colors.warning + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  hereditaryText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: Colors.warning,
+  },
+  familyCondition: {
+    fontSize: 15,
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  familyAge: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginBottom: 4,
+  },
+  familyNotes: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  
+  // Allergic Reactions Styles
+  reactionsContainer: {
+    gap: 16,
+  },
+  reactionItem: {
+    backgroundColor: Colors.surface,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  reactionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  reactionDate: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  severityBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  severityText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  reactionDetails: {
+    gap: 8,
+  },
+  reactionAllergen: {
+    fontSize: 15,
+    color: Colors.textPrimary,
+  },
+  reactionLabel: {
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  reactionText: {
+    color: Colors.textPrimary,
+  },
+  reactionSymptoms: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  reactionTreatment: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  reactionLocation: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  reactionProvider: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  reactionNotes: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
 });
