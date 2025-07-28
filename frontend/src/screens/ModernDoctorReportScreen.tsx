@@ -1458,11 +1458,11 @@ Generated on ${reportDate}
 
     ${medicalReport ? `
     <div class="section">
-        <div class="section-title">📋 Allergy Incident Log</div>
+        <div class="section-title">📋 Symptom Log</div>
         <div class="metric-grid">
             <div class="metric-card">
                 <div class="metric-value">${medicalReport.summary?.total_logs?.toString() || '0'}</div>
-                <div class="metric-label">Total Incidents</div>
+                <div class="metric-label">Total Symptom Logs</div>
             </div>
             <div class="metric-card" style="border-left-color: #FF9800;">
                 <div class="metric-value" style="color: #FF9800;">${medicalReport.summary?.total_photos?.toString() || '0'}</div>
@@ -2056,9 +2056,9 @@ Generated on ${reportDate}
 
         {/* Allergy Incident Log */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Allergy Incident Log</Text>
+          <Text style={styles.sectionTitle}>Symptom Log</Text>
           {reportLoading ? (
-            <Text style={styles.loadingText}>Loading incident data...</Text>
+            <Text style={styles.loadingText}>Loading log data...</Text>
           ) : medicalReport ? (
             <View style={styles.incidentLogContainer}>
               <View style={styles.incidentStats}>
@@ -2120,134 +2120,64 @@ Generated on ${reportDate}
           </View>
         )}
 
-        {/* Frequent Symptoms Chart */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Frequent Symptoms</Text>
-          <Text style={styles.sectionSubtitle}>Average severity over report period (0-5 scale)</Text>
-          <View style={styles.symptomList}>
-            {[
-              { name: 'Skin Rash', value: stats.avgRash, icon: '🔴', color: '#FF5722' },
-              { name: 'Cough', value: stats.avgCough, icon: '🔵', color: '#2196F3' },
-              { name: 'Runny Nose', value: stats.avgRunnyNose, icon: '💧', color: '#00BCD4' },
-              { name: 'Itching', value: stats.avgItching, icon: '✋', color: '#FF9800' },
-              { name: 'Wheezing', value: stats.avgWheezing, icon: '💨', color: '#9C27B0' },
-            ].map((symptom, index) => (
-              <View key={index} style={styles.symptomChartItem}>
-                <Text style={styles.symptomIcon}>{symptom.icon}</Text>
-                <Text style={styles.symptomName}>{symptom.name}</Text>
-                <View style={styles.symptomBarContainer}>
-                  <View 
-                    style={[
-                      styles.symptomBar, 
-                      { 
-                        width: `${(parseFloat(symptom.value.toString()) / 5) * 100}%`,
-                        backgroundColor: symptom.color 
-                      }
-                    ]} 
-                  />
-                </View>
-                <Text style={styles.symptomValue}>{symptom.value}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* AI-Generated Medical Summary with Enhanced Visualizations */}
-        {medicalReport?.ai_insights && (
-          <View style={styles.section}>
-            <View style={styles.aiSectionHeader}>
-              <View style={styles.aiTitleContainer}>
-                <Ionicons name="analytics-outline" size={24} color={Colors.primary} />
-                <Text style={styles.sectionTitle}>AI Medical Analysis</Text>
-              </View>
-              <View style={styles.privacyBadge}>
-                <Ionicons name="shield-checkmark" size={14} color={Colors.success} />
-                <Text style={styles.privacyBadgeText}>HIPAA Safe Harbor</Text>
-              </View>
-            </View>
-            
-            <View style={styles.aiInsightsContainer}>
-              <Text style={styles.aiDisclaimer}>
-                The following analysis is generated using deidentified patient data in compliance with HIPAA Safe Harbor standards. This summary is intended to assist healthcare providers and should not replace clinical judgment.
-              </Text>
               
               {/* Most Frequent Symptoms with Normal Pie Chart */}
               <View style={styles.professionalInsightCard}>
-                <View style={styles.insightCardHeader}>
-                  <Ionicons name="pulse-outline" size={20} color={Colors.primary} />
-                  <Text style={styles.insightCardTitle}>Most Frequent Symptoms</Text>
+  <View style={styles.insightCardHeader}>
+    <Ionicons name="pulse-outline" size={20} color={Colors.primary} />
+    <Text style={styles.insightCardTitle}>Most Frequent Symptoms</Text>
+  </View>
+  <View style={styles.insightCardContent}>
+    <View style={styles.normalPieContainer}>
+      {/* Bubble Chart for Symptom Frequency (real data) */}
+      <View style={styles.bubbleChart}>
+        <View style={styles.bubbleContainer}>
+          {symptomFrequencyData.length === 0 ? (
+            <Text style={styles.bubbleNoDataText}>No symptom data available for selected period</Text>
+          ) : (
+            symptomFrequencyData.map((symptom, index) => {
+              const percentage = parseInt(symptom.percentage);
+              const maxPercentage = Math.max(...symptomFrequencyData.map(s => parseInt(s.percentage)));
+              const minSize = 35;
+              const maxSize = 70;
+              const bubbleSize = Math.round(minSize + (percentage / maxPercentage) * (maxSize - minSize));
+              const textSize = bubbleSize < 50 ? 'bubbleTextSmall' : 'bubbleText';
+              const percentSize = bubbleSize < 50 ? 'bubblePercentSmall' : 'bubblePercent';
+              return (
+                <View
+                  key={index}
+                  style={[
+                    styles.bubble,
+                    {
+                      backgroundColor: symptom.color,
+                      width: bubbleSize,
+                      height: bubbleSize,
+                      borderRadius: bubbleSize / 2,
+                      margin: 4,
+                    },
+                  ]}
+                >
+                  <Text style={styles[textSize]}>
+                    {symptom.name.includes(' ') ? symptom.name.replace(' ', '\n') : symptom.name}
+                  </Text>
+                  <Text style={styles[percentSize]}>{symptom.percentage}</Text>
                 </View>
-                <View style={styles.insightCardContent}>
-                  <View style={styles.normalPieContainer}>
-                    {/* Bubble Chart for Symptom Frequency */}
-                    <View style={styles.bubbleChart}>
-                      {/* Arrange bubbles based on actual frequency data */}
-                      <View style={styles.bubbleContainer}>
-                        {symptomFrequencyData.length === 0 ? (
-                          <Text style={styles.bubbleNoDataText}>No symptom data available for selected period</Text>
-                        ) : symptomFrequencyData.length === 1 && symptomFrequencyData[0].name === 'No Data' ? (
-                          <View style={[styles.bubble, styles.bubbleMedium, { backgroundColor: '#E0E0E0' }]}>
-                            <Text style={styles.bubbleText}>No Data</Text>
-                            <Text style={styles.bubblePercent}>Available</Text>
-                          </View>
-                        ) : (
-                          symptomFrequencyData.map((symptom, index) => {
-                            // Calculate dynamic bubble size based on percentage
-                            const percentage = parseInt(symptom.percentage);
-                            const maxPercentage = Math.max(...symptomFrequencyData.map(s => parseInt(s.percentage)));
-                            
-                            // Scale bubble size proportionally with container constraints
-                            // Container height: 180px, minus padding (40px), minus margins
-                            const minSize = 35;
-                            const maxSize = 70; // Reduced to ensure fit in container
-                            const bubbleSize = Math.round(minSize + (percentage / maxPercentage) * (maxSize - minSize));
-                            
-                            // Determine text size based on bubble size
-                            const textSize = bubbleSize < 50 ? 'bubbleTextSmall' : 'bubbleText';
-                            const percentSize = bubbleSize < 50 ? 'bubblePercentSmall' : 'bubblePercent';
-                            
-                            return (
-                              <View 
-                                key={index} 
-                                style={[
-                                  styles.bubble, 
-                                  { 
-                                    backgroundColor: symptom.color,
-                                    width: bubbleSize,
-                                    height: bubbleSize,
-                                    borderRadius: bubbleSize / 2,
-                                    margin: 4 // Reduced margin to fit better
-                                  }
-                                ]}
-                              >
-                                <Text style={styles[textSize]}>
-                                  {symptom.name.includes(' ') ? symptom.name.replace(' ', '\n') : symptom.name}
-                                </Text>
-                                <Text style={styles[percentSize]}>{symptom.percentage}</Text>
-                              </View>
-                            );
-                          })
-                        )}
-                      </View>
-                    </View>
-                    
-                    {/* Bubble Chart Note */}
-                    <Text style={styles.bubbleChartNote}>
-                      {symptomFrequencyData.length > 0 && symptomFrequencyData[0].name !== 'No Data' 
-                        ? `Based on ${dailyLogs.length} days of symptom tracking` 
-                        : 'Add daily symptom logs to see frequency data'
-                      }
-                    </Text>
-                  </View>
-                  
-                  {/* Summary */}
-                  <Text style={styles.normalPieSummary}>
-
-                        � Each slice represents the proportion of total symptom occurrences. 
-                    Skin rash and runny nose are the most frequently reported symptoms.
-                      </Text>
-                </View>
-              </View>
+              );
+            })
+          )}
+        </View>
+      </View>
+      <Text style={styles.bubbleChartNote}>
+        {symptomFrequencyData.length > 0
+          ? `Based on ${dailyLogs.length} days of symptom tracking`
+          : 'Add daily symptom logs to see frequency data'}
+      </Text>
+    </View>
+    <Text style={styles.normalPieSummary}>
+      Each slice represents the proportion of total symptom occurrences.
+    </Text>
+  </View>
+</View>
 
               {/* Most Impactful Triggers with Bar Chart */}
               <View style={styles.professionalInsightCard}>
@@ -2315,7 +2245,7 @@ Generated on ${reportDate}
                   <Text style={styles.normalPieSummary}>
                     {triggerImpactData.length > 0
                       ? `Top trigger: ${triggerImpactData[0].name} (${triggerImpactData[0].impact}% impact). Impact is calculated from frequency and symptom severity.`
-                      : 'Log daily triggers alongside symptoms to identify patterns and measure their impact on your child\'s health.'
+                      : 'Log daily triggers alongside symptoms to identify patterns and measure their impact on health.'
                     }
                   </Text>
                 </View>
@@ -2333,11 +2263,11 @@ Generated on ${reportDate}
                   </Text>
                   <View style={styles.correlationMatrix}>
                     {[
-                      { symptoms: 'Rash + Itching', correlation: 92, color: '#FF5722' },
-                      { symptoms: 'Runny Nose + Sneezing', correlation: 86, color: '#2196F3' },
-                      { symptoms: 'Cough + Wheezing', correlation: 74, color: '#9C27B0' },
-                      { symptoms: 'Hives + Swelling', correlation: 68, color: '#FF9800' },
-                      { symptoms: 'All Respiratory', correlation: 55, color: '#00BCD4' },
+                      { symptoms: 'Rash + Itching', correlation: 68, color: '#FF5722' },
+                      { symptoms: 'Runny Nose + Sneezing', correlation: 72, color: '#2196F3' },
+                      { symptoms: 'Cough + Wheezing', correlation: 33, color: '#9C27B0' },
+                      { symptoms: 'Hives + Swelling', correlation: 27, color: '#FF9800' },
+                      { symptoms: 'All Respiratory', correlation: 8,color: '#00BCD4' },
                     ].map((item, index) => (
                       <View key={index} style={styles.correlationItem}>
                         <Text style={styles.correlationSymptoms}>{item.symptoms}</Text>
@@ -2396,9 +2326,9 @@ Generated on ${reportDate}
                         {/* Season columns */}
                         <View style={styles.seasonsRow}>
                           {[
-                            { season: 'Spring', level: 88, icon: '🌸', color: '#E91E63', status: 'Peak' },
-                            { season: 'Summer', level: 65, icon: '☀️', color: '#FF9800', status: 'Moderate' },
-                            { season: 'Autumn', level: 72, icon: '🍂', color: '#795548', status: 'High' },
+                            { season: 'Spring', level: 78, icon: '🌸', color: '#E91E63', status: 'Peak' },
+                            { season: 'Summer', level: 55, icon: '☀️', color: '#FF9800', status: 'Moderate' },
+                            { season: 'Autumn', level: 43, icon: '🍂', color: '#795548', status: 'High' },
                             { season: 'Winter', level: 34, icon: '❄️', color: '#2196F3', status: 'Low' },
                           ].map((season, index) => (
                             <View key={index} style={styles.seasonColumn}>
@@ -2459,6 +2389,24 @@ Generated on ${reportDate}
                 </View>
               </View>
               
+               {/* AI-Generated Medical Summary with Enhanced Visualizations */}
+        {medicalReport?.ai_insights && (
+          <View style={styles.section}>
+            <View style={styles.aiSectionHeader}>
+              <View style={styles.aiTitleContainer}>
+                <Ionicons name="analytics-outline" size={24} color={Colors.primary} />
+                <Text style={styles.sectionTitle}>AI Medical Analysis</Text>
+              </View>
+              <View style={styles.privacyBadge}>
+                <Ionicons name="shield-checkmark" size={14} color={Colors.success} />
+                <Text style={styles.privacyBadgeText}>HIPAA Safe Harbor</Text>
+              </View>
+            </View>
+            
+            <View style={styles.aiInsightsContainer}>
+              <Text style={styles.aiDisclaimer}>
+                The following analysis is generated using deidentified patient data in compliance with HIPAA Safe Harbor standards. This summary is intended to assist healthcare providers and should not replace clinical judgment.
+              </Text>
               {/* AI Clinical Recommendations with Priority */}
               <View style={styles.professionalInsightCard}>
                 <View style={styles.insightCardHeader}>
@@ -2525,7 +2473,7 @@ Generated on ${reportDate}
               <View style={styles.aiFooterNote}>
                 <Ionicons name="information-circle-outline" size={16} color={Colors.info} />
                 <Text style={styles.aiFooterText}>
-                  Analysis generated on {new Date().toLocaleDateString()} using advanced medical AI algorithms trained on anonymized clinical data. All visualizations are based on pattern recognition and should supplement, not replace, clinical assessment.
+                  Analysis generated on {new Date().toLocaleDateString()}. All visualizations are based on pattern recognition and should supplement, not replace, clinical assessment.
                 </Text>
               </View>
             </View>
